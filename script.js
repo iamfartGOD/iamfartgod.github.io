@@ -6,7 +6,7 @@ document.getElementById('reverb-slider').addEventListener('input', (event) => {
 });
 
 async function playFart() {
-    const player = new Tone.Player("https://www.dropbox.com/s/yourfileid/fart-sound.mp3?dl=1").connect(reverb);
+    const player = new Tone.Player("https://www.dropbox.com/scl/fi/t6hcklj6s6kmei5ps3qmc/Fart27.wav?rlkey=595brlojrpkqv52im7injknad&st=8vca83fc&dl=1").connect(reverb);
     await Tone.start();
     player.start();
 }
