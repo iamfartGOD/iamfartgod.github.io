@@ -10,3 +10,13 @@ function playFart() {
   player.start();
 }
 
+document.querySelector("button").addEventListener("click", () => {
+  if (Tone.context.state !== 'running') {
+    Tone.context.resume().then(() => {
+      playFart();
+    });
+  } else {
+    playFart();
+  }
+});
+
