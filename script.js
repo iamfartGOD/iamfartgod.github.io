@@ -11,7 +11,7 @@ const fileNames = [
 // Base URL for the GitHub folder where the samples are stored
 const baseURL = "https://raw.githubusercontent.com/iamfartgod/iamfartgod.github.io/main/FartGodSamplePack/";
 
-// Create AudioContext
+// Create AudioContext and Nodes
 const audioContext = new (window.AudioContext || window.webkitAudioContext)();
 let convolver = audioContext.createConvolver();
 let dryGain = audioContext.createGain();
@@ -19,7 +19,7 @@ let wetGain = audioContext.createGain();
 wetGain.gain.value = 0;
 
 // Load impulse response for reverb
-const reverbURL = "https://example.com/impulse-response.wav"; // Replace with a valid URL to an impulse response file
+const reverbURL = "https://raw.githubusercontent.com/iamfartgod/iamfartgod.github.io/main/impulse-response.wav"; // Make sure you upload an impulse-response.wav to your GitHub repo
 fetch(reverbURL)
     .then(response => response.arrayBuffer())
     .then(data => audioContext.decodeAudioData(data))
@@ -42,19 +42,24 @@ function createButtons() {
 
 // Function to play the sample with reverb effect
 function playSample(fileName) {
-    const sound = new Howl({
-        src: [`${baseURL}${fileName}`],
-        format: ['wav'],
-        onplay: function() {
-            const source = audioContext.createMediaElementSource(sound._sounds[0]._node);
+    fetch(`${baseURL}${fileName}`)
+        .then(response => response.arrayBuffer())
+        .then(data => audioContext.decodeAudioData(data))
+        .then(buffer => {
+            const source = audioContext.createBufferSource();
+            source.buffer = buffer;
+
+            // Connect nodes for reverb
             source.connect(dryGain);
             source.connect(convolver);
+
             dryGain.connect(audioContext.destination);
             convolver.connect(wetGain);
             wetGain.connect(audioContext.destination);
-        }
-    });
-    sound.play();
+
+            source.start();
+        })
+        .catch(error => console.error('Error loading audio sample:', error));
 }
 
 // Reverb mix control
@@ -67,4 +72,3 @@ reverbSlider.addEventListener("input", (event) => {
 
 // Initialize the buttons when the page loads
 window.onload = createButtons;
-
