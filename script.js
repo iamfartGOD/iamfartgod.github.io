@@ -9,7 +9,7 @@ const fileNames = [
 ];
 
 // Base URL for the GitHub folder where the samples are stored
-const baseURL = "https://raw.githubusercontent.com/USERNAME/REPOSITORY_NAME/BRANCH_NAME/";
+const baseURL = "https://raw.githubusercontent.com/iamfartgod/iamfartgod.github.io/main/Fart God Sample Pack";
 
 // Function to create buttons
 function createButtons() {
