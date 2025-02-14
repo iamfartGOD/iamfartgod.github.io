@@ -9,9 +9,7 @@ const fileNames = [
 ];
 
 // Base URL for the GitHub folder where the samples are stored
-const baseURL = "https://raw.githubusercontent.com/iamfartgod/iamfartgod.github.io/main/Fart%20God%20Sample%20Pack/";
-
-Fart God Sample Pack
+const baseURL = "https://raw.githubusercontent.com/iamfartgod/iamfartgod.github.io/main/FartGodSamplePack";
 
 // Function to create buttons
 function createButtons() {
@@ -20,15 +18,16 @@ function createButtons() {
         const button = document.createElement("button");
         button.innerText = `Sample ${index + 1}`;
         button.onclick = () => playSample(fileName);
+        button.style.margin = "10px"; // Add margin for better layout
         container.appendChild(button);
     });
 }
 
-// Function to play the sample
+// Function to play the sample using Howler.js
 function playSample(fileName) {
     const sound = new Howl({
         src: [`${baseURL}${fileName}`],
-        format: ['wav'],
+        format: ['wav']
     });
     sound.play();
 }
