@@ -1,8 +1,14 @@
 body {
     font-family: Arial, sans-serif;
     display: flex;
-    justify-content: center;
+    flex-direction: column;
+    align-items: center;
     padding: 20px;
+}
+
+h1 {
+    text-align: center;
+    margin-bottom: 20px;
 }
 
 #sample-buttons {
@@ -11,6 +17,7 @@ body {
     gap: 10px;
     max-width: 80vw;
     justify-content: center;
+    margin-bottom: 20px;
 }
 
 button {
@@ -25,4 +32,13 @@ button {
 
 button:hover {
     background-color: #555;
+}
+
+#reverb-control {
+    text-align: center;
+    margin-top: 20px;
+}
+
+#reverb-slider {
+    width: 300px;
 }
