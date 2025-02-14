@@ -1,4 +1,4 @@
-// List of audio file names (change these as needed)
+// List of audio file names with capital F
 const fileNames = [
     "Fart1.wav", "Fart2.wav", "Fart3.wav", "Fart4.wav", "Fart5.wav",
     "Fart6.wav", "Fart7.wav", "Fart8.wav", "Fart9.wav", "Fart10.wav",
@@ -9,7 +9,7 @@ const fileNames = [
 ];
 
 // Base URL for the GitHub folder where the samples are stored
-const baseURL = "https://raw.githubusercontent.com/iamfartgod/iamfartgod.github.io/Main/Fart God Sample Pack/";
+const baseURL = "https://raw.githubusercontent.com/USERNAME/REPOSITORY_NAME/BRANCH_NAME/";
 
 // Function to create buttons
 function createButtons() {
@@ -24,13 +24,11 @@ function createButtons() {
 
 // Function to play the sample
 function playSample(fileName) {
-    // Check if AudioContext is running
-    if (Tone.context.state !== 'running') {
-        Tone.context.resume();
-    }
-
-    const player = new Tone.Player(`${baseURL}${fileName}`).toDestination();
-    player.autostart = true;
+    const sound = new Howl({
+        src: [`${baseURL}${fileName}`],
+        format: ['wav'],
+    });
+    sound.play();
 }
 
 // Initialize the buttons when the page loads
