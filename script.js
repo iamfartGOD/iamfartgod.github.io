@@ -1,15 +1,15 @@
 // List of audio file names (change these as needed)
 const fileNames = [
-    "fart1.wav", "fart2.wav", "fart3.wav", "fart4.wav", "fart5.wav",
-    "fart6.wav", "fart7.wav", "fart8.wav", "fart9.wav", "fart10.wav",
-    "fart11.wav", "fart12.wav", "fart13.wav", "fart14.wav", "fart15.wav",
-    "fart16.wav", "fart17.wav", "fart18.wav", "fart19.wav", "fart20.wav",
-    "fart21.wav", "fart22.wav", "fart23.wav", "fart24.wav", "fart25.wav",
-    "fart26.wav", "fart27.wav"
+    "Fart1.wav", "Fart2.wav", "Fart3.wav", "Fart4.wav", "Fart5.wav",
+    "Fart6.wav", "Fart7.wav", "Fart8.wav", "Fart9.wav", "Fart10.wav",
+    "Fart11.wav", "Fart12.wav", "Fart13.wav", "Fart14.wav", "Fart15.wav",
+    "Fart16.wav", "Fart17.wav", "Fart18.wav", "Fart19.wav", "Fart20.wav",
+    "Fart21.wav", "Fart22.wav", "Fart23.wav", "Fart24.wav", "Fart25.wav",
+    "Fart26.wav", "Fart27.wav"
 ];
 
 // Base URL for the GitHub folder where the samples are stored
-const baseURL = "https://raw.githubusercontent.com/USERNAME/REPOSITORY_NAME/BRANCH_NAME/";
+const baseURL = "https://raw.githubusercontent.com/iamfartgod/iamfartgod.github.io/Main/Fart God Sample Pack/";
 
 // Function to create buttons
 function createButtons() {
