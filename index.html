@@ -1,18 +1,16 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>fartGOD Samples</title>
+    <title>fartGOD Samples - Volume 1</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <h1>fartGOD Samples</h1>
-    <button onclick="playFart()">Play Fart</button>
-    <label for="reverb-slider">Reverb: </label>
-    <input type="range" id="reverb-slider" min="0" max="1" step="0.01" value="0">
-    
-    <!-- Load scripts at the end of body -->
-    <script src="https://cdn.jsdelivr.net/npm/tone@14.8.52/build/Tone.js"></script>
-    <script src="script.js"></script>
-</body>
+    <h1>fartGOD Samples - Volume 1</h1>
+    <div class="button-grid" id="sample-buttons"></div>
 
+    <!-- Load Tone.js -->
+    <script src="https://cdn.jsdelivr.net/npm/tone@14.8.52/build/Tone.js"></script>
+    <!-- Load custom JavaScript -->
+    <script src="script.js" defer></script>
+</body>
 </html>
