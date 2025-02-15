@@ -44,61 +44,58 @@ button:hover {
 }
 
 #music-player {
-    max-width: 400px;
+    max-width: 350px;
     margin: 20px auto;
-    padding: 20px;
-    background: #1e1e2d;
-    border-radius: 20px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    padding: 15px;
+    background: #2a2a3d;
+    border-radius: 15px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
     color: #fff;
     text-align: center;
+    font-family: Arial, sans-serif;
+}
+
+#current-song {
+    font-size: 1.2em;
+    color: #ffcc00;
+    margin-bottom: 10px;
 }
 
 #song-list {
     list-style: none;
     padding: 0;
+    max-height: 150px;
+    overflow-y: auto;
     margin-bottom: 15px;
 }
 
 #song-list li {
-    padding: 10px;
+    padding: 8px;
     margin: 5px 0;
-    background: #29293d;
-    border-radius: 10px;
+    background: #39395a;
+    border-radius: 8px;
     cursor: pointer;
     transition: background 0.3s;
 }
 
 #song-list li:hover {
-    background: #383855;
-}
-
-#now-playing {
-    margin-top: 15px;
-}
-
-#current-song {
-    display: block;
-    margin-bottom: 10px;
-    font-weight: bold;
-    color: #ffc107;
+    background: #4a4a6d;
 }
 
 #play-pause-btn {
-    background: #ffc107;
+    background: #ffcc00;
     border: none;
-    border-radius: 50%;
-    width: 50px;
-    height: 50px;
-    font-size: 24px;
-    color: #1e1e2d;
+    border-radius: 50px;
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
+    color: #2a2a3d;
     cursor: pointer;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
-    transition: background 0.3s, transform 0.2s;
+    box-shadow: 0 3px 5px rgba(0, 0, 0, 0.2);
+    transition: transform 0.2s;
 }
 
 #play-pause-btn:hover {
-    background: #e0a800;
     transform: scale(1.1);
 }
 
@@ -107,29 +104,26 @@ button:hover {
     margin-top: 10px;
     -webkit-appearance: none;
     appearance: none;
-    height: 5px;
+    height: 6px;
     background: #fff;
     border-radius: 5px;
     outline: none;
-    transition: background 0.2s;
 }
 
 #progress-bar::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 15px;
-    height: 15px;
-    background: #ffc107;
+    width: 14px;
+    height: 14px;
+    background: #ffcc00;
     border-radius: 50%;
     cursor: pointer;
-    box-shadow: 0 0 3px rgba(0, 0, 0, 0.3);
 }
 
 #progress-bar::-moz-range-thumb {
-    width: 15px;
-    height: 15px;
-    background: #ffc107;
+    width: 14px;
+    height: 14px;
+    background: #ffcc00;
     border-radius: 50%;
     cursor: pointer;
 }
-
