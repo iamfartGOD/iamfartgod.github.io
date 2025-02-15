@@ -16,10 +16,10 @@ const audioContext = new (window.AudioContext || window.webkitAudioContext)();
 let convolver = audioContext.createConvolver();
 let dryGain = audioContext.createGain();
 let wetGain = audioContext.createGain();
-wetGain.gain.value = 0;
+wetGain.gain.value = 0.8; // Set to 80% by default
 
 // Load impulse response for reverb
-const reverbURL = "https://raw.githubusercontent.com/iamfartgod/iamfartgod.github.io/main/impulse-response.wav"; // Make sure you upload an impulse-response.wav to your GitHub repo
+const reverbURL = "https://raw.githubusercontent.com/iamfartgod/iamfartgod.github.io/main/impulse-response.wav"; 
 fetch(reverbURL)
     .then(response => response.arrayBuffer())
     .then(data => audioContext.decodeAudioData(data))
@@ -31,12 +31,22 @@ fetch(reverbURL)
 // Function to create buttons
 function createButtons() {
     const container = document.getElementById("sample-buttons");
+    let row;
     fileNames.forEach((fileName, index) => {
+        // Create a new row every 5 buttons
+        if (index % 5 === 0) {
+            row = document.createElement("div");
+            row.style.display = "flex";
+            row.style.justifyContent = "center";
+            row.style.marginBottom = "10px";
+            container.appendChild(row);
+        }
         const button = document.createElement("button");
         button.innerText = `Sample ${index + 1}`;
         button.onclick = () => playSample(fileName);
-        button.style.margin = "10px"; // Add margin for better layout
-        container.appendChild(button);
+        button.style.margin = "5px"; // Add margin for better layout
+        button.style.padding = "10px 15px";
+        row.appendChild(button);
     });
 }
 
@@ -64,12 +74,12 @@ function playSample(fileName) {
 
 // Reverb mix control
 const reverbSlider = document.getElementById("reverb-slider");
+reverbSlider.value = 0.8; // Default to 80% on load
 reverbSlider.addEventListener("input", (event) => {
     const mix = parseFloat(event.target.value);
     dryGain.gain.value = 1 - mix;
     wetGain.gain.value = mix;
 });
-
 
 // Initialize the buttons when the page loads
 window.onload = createButtons;
