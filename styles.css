@@ -1,9 +1,12 @@
+/* Set background color for the whole page */
 body {
     font-family: Arial, sans-serif;
     display: flex;
     flex-direction: column;
     align-items: center;
     padding: 20px;
+    background-color: black; /* Set background to black */
+    color: white; /* Set text to white */
 }
 
 h1 {
@@ -27,11 +30,13 @@ button {
     border: none;
     border-radius: 5px;
     cursor: pointer;
-    transition: background-color 0.3s;
+    transition: background-color 0.3s, box-shadow 0.3s; /* Add transition for glow effect */
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.5); /* Add initial glow effect */
 }
 
 button:hover {
     background-color: #555;
+    box-shadow: 0 0 20px rgba(255, 255, 255, 1); /* Stronger glow on hover */
 }
 
 #reverb-control {
@@ -156,4 +161,3 @@ button:hover {
     cursor: pointer;
     box-shadow: 0 0 10px #00f0ff;
 }
-
