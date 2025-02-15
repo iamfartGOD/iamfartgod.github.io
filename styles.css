@@ -42,3 +42,94 @@ button:hover {
 #reverb-slider {
     width: 300px;
 }
+
+#music-player {
+    max-width: 400px;
+    margin: 20px auto;
+    padding: 20px;
+    background: #1e1e2d;
+    border-radius: 20px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    color: #fff;
+    text-align: center;
+}
+
+#song-list {
+    list-style: none;
+    padding: 0;
+    margin-bottom: 15px;
+}
+
+#song-list li {
+    padding: 10px;
+    margin: 5px 0;
+    background: #29293d;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+#song-list li:hover {
+    background: #383855;
+}
+
+#now-playing {
+    margin-top: 15px;
+}
+
+#current-song {
+    display: block;
+    margin-bottom: 10px;
+    font-weight: bold;
+    color: #ffc107;
+}
+
+#play-pause-btn {
+    background: #ffc107;
+    border: none;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    font-size: 24px;
+    color: #1e1e2d;
+    cursor: pointer;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+    transition: background 0.3s, transform 0.2s;
+}
+
+#play-pause-btn:hover {
+    background: #e0a800;
+    transform: scale(1.1);
+}
+
+#progress-bar {
+    width: 80%;
+    margin-top: 10px;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 5px;
+    background: #fff;
+    border-radius: 5px;
+    outline: none;
+    transition: background 0.2s;
+}
+
+#progress-bar::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 15px;
+    height: 15px;
+    background: #ffc107;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 0 3px rgba(0, 0, 0, 0.3);
+}
+
+#progress-bar::-moz-range-thumb {
+    width: 15px;
+    height: 15px;
+    background: #ffc107;
+    border-radius: 50%;
+    cursor: pointer;
+}
+
