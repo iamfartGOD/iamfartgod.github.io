@@ -79,4 +79,78 @@ reverbSlider.addEventListener("input", (event) => {
 });
 
 // Initialize the buttons when the page loads
-window.onload = createButtons;
+window.onload = () => {
+    createButtons();
+    initializeMusicPlayer();
+};
+
+// Music Player Section
+const songList = [
+    "Song1.mp3", "Song2.mp3", "Song3.mp3" // Add your song file names here
+];
+const musicBaseURL = "https://raw.githubusercontent.com/iamfartgod/iamfartgod.github.io/main/FartGodMusic/";
+let currentSongIndex = null;
+let audio = new Audio();
+const songListContainer = document.getElementById("song-list");
+const nowPlaying = document.getElementById("current-song");
+const playPauseBtn = document.getElementById("play-pause-btn");
+const progressBar = document.getElementById("progress-bar");
+
+// Function to initialize the music player
+function initializeMusicPlayer() {
+    songList.forEach((song, index) => {
+        const li = document.createElement("li");
+        li.innerText = song;
+        li.onclick = () => playSong(index);
+        songListContainer.appendChild(li);
+    });
+
+    playPauseBtn.onclick = togglePlayPause;
+    progressBar.addEventListener("input", seek);
+    audio.addEventListener("timeupdate", updateProgress);
+    audio.addEventListener("ended", nextSong);
+}
+
+// Function to play a selected song
+function playSong(index) {
+    if (index !== currentSongIndex) {
+        currentSongIndex = index;
+        audio.src = `${musicBaseURL}${songList[index]}`;
+        nowPlaying.innerText = songList[index];
+        audio.play();
+        playPauseBtn.innerText = "Pause";
+    } else {
+        togglePlayPause();
+    }
+}
+
+// Function to toggle play and pause
+function togglePlayPause() {
+    if (audio.paused) {
+        audio.play();
+        playPauseBtn.innerText = "Pause";
+    } else {
+        audio.pause();
+        playPauseBtn.innerText = "Play";
+    }
+}
+
+// Function to update the progress bar
+function updateProgress() {
+    const progress = (audio.currentTime / audio.duration) * 100;
+    progressBar.value = progress;
+}
+
+// Function to seek within the track
+function seek(event) {
+    const seekTime = (event.target.value / 100) * audio.duration;
+    audio.currentTime = seekTime;
+}
+
+// Function to play the next song automatically
+function nextSong() {
+    if (currentSongIndex !== null) {
+        const nextIndex = (currentSongIndex + 1) % songList.length;
+        playSong(nextIndex);
+    }
+}
