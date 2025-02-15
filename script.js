@@ -86,7 +86,7 @@ window.onload = () => {
 
 // Music Player Section
 const songList = [
-    "Song1.mp3", "Song2.mp3", "Song3.mp3" // Add your song file names here
+    "Oh My God It's fartGOD.mp3", "Song2.wav", "Song3.wav" // Add your song file names here
 ];
 const musicBaseURL = "https://raw.githubusercontent.com/iamfartgod/iamfartgod.github.io/main/FartGodMusic/";
 let currentSongIndex = null;
