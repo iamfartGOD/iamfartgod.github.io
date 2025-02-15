@@ -43,87 +43,117 @@ button:hover {
     width: 300px;
 }
 
+/* Futuristic Music Player Styles */
 #music-player {
-    max-width: 350px;
+    max-width: 400px;
     margin: 20px auto;
-    padding: 15px;
-    background: #2a2a3d;
-    border-radius: 15px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    padding: 20px;
+    background: radial-gradient(circle at top left, #1e1e2f, #151526);
+    border-radius: 20px;
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5), 0 0 15px #00f0ff;
     color: #fff;
     text-align: center;
-    font-family: Arial, sans-serif;
+    font-family: 'Orbitron', sans-serif;
+    position: relative;
+    overflow: hidden;
+}
+
+#music-player::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: conic-gradient(from 180deg, #00f0ff, transparent, #ff00ff, transparent, #00f0ff);
+    animation: rotate 4s linear infinite;
+    z-index: -1;
+    filter: blur(50px);
+}
+
+@keyframes rotate {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
 
 #current-song {
-    font-size: 1.2em;
-    color: #ffcc00;
-    margin-bottom: 10px;
+    font-size: 1.4em;
+    color: #00f0ff;
+    margin-bottom: 15px;
+    text-shadow: 0 0 8px #00f0ff;
 }
 
 #song-list {
     list-style: none;
     padding: 0;
-    max-height: 150px;
+    max-height: 200px;
     overflow-y: auto;
     margin-bottom: 15px;
 }
 
 #song-list li {
-    padding: 8px;
-    margin: 5px 0;
-    background: #39395a;
-    border-radius: 8px;
+    padding: 10px;
+    margin: 8px 0;
+    background: linear-gradient(145deg, #23233a, #1a1a2d);
+    border-radius: 10px;
     cursor: pointer;
-    transition: background 0.3s;
+    transition: transform 0.3s, box-shadow 0.3s;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+    color: #fff;
 }
 
 #song-list li:hover {
-    background: #4a4a6d;
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px #00f0ff;
 }
 
 #play-pause-btn {
-    background: #ffcc00;
+    background: linear-gradient(145deg, #00f0ff, #007a99);
     border: none;
     border-radius: 50px;
-    width: 40px;
-    height: 40px;
-    font-size: 18px;
-    color: #2a2a3d;
+    width: 50px;
+    height: 50px;
+    font-size: 22px;
+    color: #fff;
     cursor: pointer;
-    box-shadow: 0 3px 5px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 5px 15px rgba(0, 240, 255, 0.4);
     transition: transform 0.2s;
 }
 
 #play-pause-btn:hover {
-    transform: scale(1.1);
+    transform: scale(1.15);
+    box-shadow: 0 10px 20px #00f0ff;
 }
 
 #progress-bar {
-    width: 80%;
+    width: 90%;
     margin-top: 10px;
     -webkit-appearance: none;
     appearance: none;
-    height: 6px;
-    background: #fff;
+    height: 8px;
+    background: #33334d;
     border-radius: 5px;
     outline: none;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
 }
 
 #progress-bar::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 14px;
-    height: 14px;
-    background: #ffcc00;
+    width: 16px;
+    height: 16px;
+    background: radial-gradient(circle, #00f0ff, #007a99);
     border-radius: 50%;
     cursor: pointer;
+    box-shadow: 0 0 10px #00f0ff;
 }
 
 #progress-bar::-moz-range-thumb {
-    width: 14px;
-    height: 14px;
-    background: #ffcc00;
+    width: 16px;
+    height: 16px;
+    background: radial-gradient(circle, #00f0ff, #007a99);
     border-radius: 50%;
     cursor: pointer;
+    box-shadow: 0 0 10px #00f0ff;
 }
+
