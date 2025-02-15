@@ -79,6 +79,16 @@ reverbSlider.addEventListener("input", (event) => {
 });
 
 // Initialize the buttons when the page loads
+window.onload = function() {
+    createButtons();
+    // Set reverb to 95% by default
+    wetGain.gain.value = 0.95;
+    dryGain.gain.value = 0.05;
+    reverbSlider.value = 0.95;
+};
+
+
+// Initialize the buttons when the page loads
 window.onload = () => {
     createButtons();
     initializeMusicPlayer();
