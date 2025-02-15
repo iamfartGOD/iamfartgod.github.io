@@ -31,22 +31,19 @@ fetch(reverbURL)
 // Function to create buttons
 function createButtons() {
     const container = document.getElementById("sample-buttons");
-    let row;
+    container.style.display = "flex";
+    container.style.flexWrap = "wrap";
+    container.style.justifyContent = "center";
+    container.style.gap = "10px";
+    container.style.padding = "0 20px";
+
     fileNames.forEach((fileName, index) => {
-        // Create a new row every 5 buttons
-        if (index % 5 === 0) {
-            row = document.createElement("div");
-            row.style.display = "flex";
-            row.style.justifyContent = "center";
-            row.style.marginBottom = "10px";
-            container.appendChild(row);
-        }
         const button = document.createElement("button");
         button.innerText = `Sample ${index + 1}`;
         button.onclick = () => playSample(fileName);
-        button.style.margin = "5px"; // Add margin for better layout
         button.style.padding = "10px 15px";
-        row.appendChild(button);
+        button.style.flex = "1 0 18%"; // 5 buttons per row with gap
+        container.appendChild(button);
     });
 }
 
