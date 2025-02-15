@@ -86,7 +86,7 @@ window.onload = () => {
 
 // Music Player Section
 const songList = [
-    "Oh My God It's fartGOD.mp3", "Song2.wav", "Song3.wav" // Add your song file names here
+    "Oh My God It's fartGOD.mp3", "fartGOD - Shit Yo Pants feat. Thric3, aka Thick Rice, aka Thick Rick.mp3", "Song3.wav" // Add your song file names here
 ];
 const musicBaseURL = "https://raw.githubusercontent.com/iamfartgod/iamfartgod.github.io/main/FartGodMusic/";
 let currentSongIndex = null;
