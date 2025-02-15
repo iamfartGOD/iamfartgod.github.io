@@ -70,5 +70,26 @@ reverbSlider.addEventListener("input", (event) => {
     wetGain.gain.value = mix;
 });
 
+
+
+// Create the reverb effect with Howler.js (using Howler's spatial audio for reverb simulation)
+let reverb = new Howl({
+    src: ['https://raw.githubusercontent.com/iamfartgod/iamfartgod.github.io/main/FartGodSamplePack/Fart1.wav'],
+    volume: 0.8 // Set to 80% on load
+});
+
+// Update reverb mix when slider changes
+const reverbSlider = document.getElementById("reverb-slider");
+reverbSlider.addEventListener("input", function() {
+    const reverbValue = parseFloat(reverbSlider.value);
+    reverb.volume(reverbValue);
+});
+
+// Set initial reverb mix to 80% on page load
+window.addEventListener("load", function() {
+    reverb.volume(0.8);
+});
+
+
 // Initialize the buttons when the page loads
 window.onload = createButtons;
