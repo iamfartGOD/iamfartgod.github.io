@@ -1,63 +1,554 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>fartGOD Samples</title>
-    <link rel="stylesheet" href="styles.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>fartGOD Sample Pack</title>
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            max-width: 800px;
-            margin: 0 auto;
+            font-family: 'Courier New', monospace;
+            background: #0a0e27;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
             padding: 20px;
+            color: #00ff41;
         }
 
-        h1 {
-            margin-top: 50px;
+        .container {
+            background: #0f1729;
+            border: 2px solid #00ff41;
+            border-radius: 8px;
+            padding: 40px;
+            max-width: 900px;
+            width: 100%;
+            box-shadow: 0 0 30px rgba(0, 255, 65, 0.2), inset 0 0 20px rgba(0, 255, 65, 0.05);
         }
 
-        .section {
-            margin-bottom: 50px;
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            border-bottom: 2px solid #00ff41;
+            padding-bottom: 20px;
+        }
+
+        .title {
+            font-size: 3.5em;
+            font-weight: 900;
+            color: #00ff41;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            text-shadow: 0 0 10px #00ff41;
+        }
+
+        .subtitle {
+            color: #00cc33;
+            font-size: 1.1em;
+            font-weight: 300;
+            letter-spacing: 1px;
+        }
+
+        /* Scan line effect */
+        .scanlines {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            background: repeating-linear-gradient(
+                0deg,
+                rgba(0, 255, 65, 0.03),
+                rgba(0, 255, 65, 0.03) 1px,
+                transparent 1px,
+                transparent 2px
+            );
+            z-index: 1;
+        }
+
+        /* Car Radio Player */
+        .radio-player {
+            background: linear-gradient(135deg, #0f1729 0%, #1a2342 100%);
+            border: 2px solid #00ff41;
+            border-radius: 8px;
+            padding: 30px;
+            margin-bottom: 40px;
+            color: #00ff41;
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.2), inset 0 0 10px rgba(0, 255, 65, 0.05);
+        }
+
+        .radio-display {
+            background: #0a0e27;
+            border: 2px solid #00ff41;
+            border-radius: 4px;
+            padding: 20px;
+            margin-bottom: 25px;
+            text-align: center;
+            min-height: 60px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            box-shadow: inset 0 0 15px rgba(0, 255, 65, 0.1);
+        }
+
+        .radio-label {
+            font-size: 0.8em;
+            opacity: 0.7;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #00cc33;
+        }
+
+        .radio-song {
+            font-size: 1.3em;
+            font-weight: bold;
+            word-break: break-word;
+            text-shadow: 0 0 5px #00ff41;
+        }
+
+        .radio-controls {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 25px;
+        }
+
+        .radio-btn {
+            background: #0a0e27;
+            color: #00ff41;
+            border: 2px solid #00ff41;
+            border-radius: 4px;
+            width: 55px;
+            height: 55px;
+            font-size: 24px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s ease;
+            box-shadow: 0 0 10px rgba(0, 255, 65, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Courier New', monospace;
+        }
+
+        .radio-btn:hover {
+            background: #00ff41;
+            color: #0a0e27;
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.6);
+            transform: scale(1.05);
+        }
+
+        .radio-btn:active {
+            transform: scale(0.95);
+        }
+
+        .play-pause-btn {
+            width: 70px;
+            height: 70px;
+            font-size: 32px;
+        }
+
+        .song-selector {
+            background: #0a0e27;
+            border: 2px solid #00ff41;
+            border-radius: 4px;
+            padding: 0;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .song-selector select {
+            width: 100%;
+            padding: 12px 15px;
+            background: #0a0e27;
+            color: #00ff41;
+            border: none;
+            font-size: 1em;
+            cursor: pointer;
+            outline: none;
+            appearance: none;
+            padding-right: 40px;
+            font-family: 'Courier New', monospace;
+            text-shadow: 0 0 5px #00ff41;
+        }
+
+        .song-selector select option {
+            background: #0f1729;
+            color: #00ff41;
+        }
+
+        .song-selector select:hover {
+            box-shadow: inset 0 0 10px rgba(0, 255, 65, 0.1);
+        }
+
+        .song-selector {
+            position: relative;
+        }
+
+        .song-selector::after {
+            content: "▼";
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            pointer-events: none;
+            color: #00ff41;
+        }
+
+        /* Samples Section */
+        .samples-section {
+            margin-bottom: 40px;
+        }
+
+        .section-title {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #00ff41;
+            margin-bottom: 25px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px #00ff41;
+        }
+
+        #sample-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .sample-btn {
+            padding: 20px;
+            background: #0a0e27;
+            color: #00ff41;
+            border: 2px solid #00ff41;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 0.9em;
+            transition: all 0.2s ease;
+            box-shadow: 0 0 10px rgba(0, 255, 65, 0.2);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .sample-btn:hover {
+            background: #00ff41;
+            color: #0a0e27;
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.6);
+            transform: translateY(-2px);
+        }
+
+        .sample-btn:active {
+            transform: translateY(0);
+        }
+
+        /* Reverb Control */
+        .reverb-section {
+            background: linear-gradient(135deg, #0f1729 0%, #1a2342 100%);
+            border: 2px solid #00ff41;
+            border-radius: 8px;
+            padding: 25px;
+            color: #00ff41;
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.2), inset 0 0 10px rgba(0, 255, 65, 0.05);
+        }
+
+        .reverb-label {
+            font-size: 1.1em;
+            font-weight: bold;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            text-shadow: 0 0 5px #00ff41;
         }
 
         #reverb-slider {
-            width: 300px;
+            width: 100%;
+            height: 8px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: #0a0e27;
+            border: 1px solid #00ff41;
+            border-radius: 4px;
+            outline: none;
+            cursor: pointer;
+            box-shadow: inset 0 0 10px rgba(0, 255, 65, 0.1);
         }
 
-        .gumroad-product-embed {
-            display: block;
-            width: 100%;
-            max-width: 300px;
-            margin: 0 auto;
+        #reverb-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #00ff41;
+            border: 2px solid #0a0e27;
+            border-radius: 3px;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(0, 255, 65, 0.6);
+        }
+
+        #reverb-slider::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            background: #00ff41;
+            border: 2px solid #0a0e27;
+            border-radius: 3px;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(0, 255, 65, 0.6);
+        }
+
+        .reverb-value {
+            font-size: 0.9em;
+            margin-top: 10px;
+            opacity: 0.8;
+            color: #00cc33;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 25px;
+            }
+
+            .title {
+                font-size: 2.5em;
+            }
+
+            #sample-buttons {
+                grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+                gap: 12px;
+            }
+
+            .sample-btn {
+                padding: 15px;
+                font-size: 0.8em;
+            }
+
+            .radio-controls {
+                gap: 10px;
+            }
+
+            .radio-btn {
+                width: 50px;
+                height: 50px;
+                font-size: 20px;
+            }
+
+            .play-pause-btn {
+                width: 60px;
+                height: 60px;
+                font-size: 28px;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="section" id="music-player">
-        <h1>fartGOD Music</h1>
-        <h3 id="current-song">No song selected</h3>
-        <ul id="song-list"></ul>
-        <button id="play-pause-btn">▶️</button>
-        <input type="range" id="progress-bar" value="0" min="0" max="100">
-    </div>
+    <div class="scanlines"></div>
+    <div class="container">
+        <div class="header">
+            <div class="title">💨 fartGOD 💨</div>
+            <div class="subtitle">> SAMPLE PACK PLAYER</div>
+        </div>
 
-    <div class="section">
-        <h1>fartGOD Samples</h1>
-        <div id="sample-buttons"></div>
-        <div id="reverb-control">
-            <label for="reverb-slider">Reverb: </label>
-            <input type="range" id="reverb-slider" min="0" max="1" step="0.01" value="0.8">   
+        <!-- Car Radio Player -->
+        <div class="radio-player">
+            <div class="radio-display">
+                <div class="radio-label">> NOW PLAYING</div>
+                <div class="radio-song" id="current-song">No song loaded</div>
+            </div>
+            
+            <div class="song-selector">
+                <select id="song-dropdown">
+                    <option value="" disabled selected>SELECT A SONG...</option>
+                </select>
+            </div>
+
+            <div class="radio-controls">
+                <button class="radio-btn" id="prev-btn" title="Previous">⏮</button>
+                <button class="radio-btn play-pause-btn" id="play-pause-btn" title="Play/Pause">▶️</button>
+                <button class="radio-btn" id="next-btn" title="Next">⏭</button>
+            </div>
+        </div>
+
+        <!-- Samples Section -->
+        <div class="samples-section">
+            <div class="section-title">> SAMPLE PACKS</div>
+            <div id="sample-buttons"></div>
+        </div>
+
+        <!-- Reverb Control -->
+        <div class="reverb-section">
+            <label class="reverb-label">> REVERB MIX</label>
+            <input type="range" id="reverb-slider" min="0" max="1" step="0.01" value="0.8">
+            <div class="reverb-value">> MIX: <span id="reverb-value">80%</span></div>
         </div>
     </div>
 
-    <div class="section">
-        <script src="https://gumroad.com/js/gumroad-embed.js"></script>
-        <div class="gumroad-product-embed">
-            <a href="https://fartgod.gumroad.com/l/fartGODSamplePack">Loading...</a>
-        </div>
-    </div>
+    <script>
+        // Audio setup with Web Audio API
+        const baseURL = "https://raw.githubusercontent.com/iamfartgod/iamfartgod.github.io/main/FartGodSamplePack/";
+        const musicBaseURL = "https://raw.githubusercontent.com/iamfartgod/iamfartgod.github.io/main/FartGodMusic/";
 
-    <script src="https://cdn.jsdelivr.net/npm/howler"></script>
-    <script src="script.js"></script>
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        let convolver = audioContext.createConvolver();
+        let dryGain = audioContext.createGain();
+        let wetGain = audioContext.createGain();
+        wetGain.gain.value = 0.8;
+
+        // Load impulse response for reverb
+        const reverbURL = "https://raw.githubusercontent.com/iamfartgod/iamfartgod.github.io/main/impulse-response.wav";
+        fetch(reverbURL)
+            .then(response => response.arrayBuffer())
+            .then(data => audioContext.decodeAudioData(data))
+            .then(buffer => { convolver.buffer = buffer; })
+            .catch(error => console.error('Error loading impulse response:', error));
+
+        // Sample files
+        const sampleFileNames = [
+            "Fart1.wav", "Fart2.wav", "Fart3.wav", "Fart4.wav", "Fart5.wav",
+            "Fart6.wav", "Fart7.wav", "Fart8.wav", "Fart9.wav", "Fart10.wav",
+            "Fart11.wav", "Fart12.wav", "Fart13.wav", "Fart14.wav", "Fart15.wav",
+            "Fart16.wav", "Fart17.wav", "Fart18.wav", "Fart19.wav", "Fart20.wav",
+            "Fart21.wav", "Fart22.wav", "Fart23.wav", "Fart24.wav", "Fart25.wav",
+            "Fart26.wav", "Fart27.wav"
+        ];
+
+        // Create sample buttons
+        function createButtons() {
+            const container = document.getElementById("sample-buttons");
+            sampleFileNames.forEach((fileName, index) => {
+                const button = document.createElement("button");
+                button.className = "sample-btn";
+                button.innerText = `Sample ${index + 1}`;
+                button.onclick = () => playSample(fileName);
+                container.appendChild(button);
+            });
+        }
+
+        // Play sample with reverb
+        function playSample(fileName) {
+            fetch(`${baseURL}${fileName}`)
+                .then(response => response.arrayBuffer())
+                .then(data => audioContext.decodeAudioData(data))
+                .then(buffer => {
+                    const source = audioContext.createBufferSource();
+                    source.buffer = buffer;
+                    source.connect(dryGain);
+                    source.connect(convolver);
+                    dryGain.connect(audioContext.destination);
+                    convolver.connect(wetGain);
+                    wetGain.connect(audioContext.destination);
+                    source.start();
+                })
+                .catch(error => console.error('Error loading audio sample:', error));
+        }
+
+        // Reverb control
+        const reverbSlider = document.getElementById("reverb-slider");
+        const reverbValueDisplay = document.getElementById("reverb-value");
+        
+        reverbSlider.addEventListener("input", (event) => {
+            const mix = parseFloat(event.target.value);
+            dryGain.gain.value = 1 - mix;
+            wetGain.gain.value = mix;
+            reverbValueDisplay.innerText = Math.round(mix * 100) + "%";
+        });
+
+        // Music Player
+        const songList = [
+            "Oh My God It's fartGOD.mp3",
+            "Shit Yo Pants feat. Thric3, aka Thick Rice, aka Thick Rick.mp3",
+            "I Need A Burrito.wav",
+            "Doo Doo Maker.mp3"
+        ];
+
+        let currentSongIndex = 0;
+        let audio = new Audio();
+        const nowPlaying = document.getElementById("current-song");
+        const playPauseBtn = document.getElementById("play-pause-btn");
+        const songDropdown = document.getElementById("song-dropdown");
+        const prevBtn = document.getElementById("prev-btn");
+        const nextBtn = document.getElementById("next-btn");
+
+        function initializeMusicPlayer() {
+            // Populate dropdown
+            songList.forEach((song, index) => {
+                const option = document.createElement("option");
+                option.value = index;
+                option.innerText = song.replace(/\.[^/.]+$/, "");
+                songDropdown.appendChild(option);
+            });
+
+            // Load first song
+            loadSong(0);
+
+            songDropdown.addEventListener("change", (e) => {
+                if (e.target.value !== "") {
+                    playSong(parseInt(e.target.value));
+                }
+            });
+
+            playPauseBtn.addEventListener("click", togglePlayPause);
+            prevBtn.addEventListener("click", previousSong);
+            nextBtn.addEventListener("click", nextSong);
+            audio.addEventListener("ended", nextSong);
+        }
+
+        function loadSong(index) {
+            currentSongIndex = index;
+            audio.src = `${musicBaseURL}${songList[index]}`;
+            nowPlaying.innerText = songList[index].replace(/\.[^/.]+$/, "");
+            songDropdown.value = index;
+            updatePlayPauseButton();
+        }
+
+        function playSong(index) {
+            loadSong(index);
+            audio.play();
+            updatePlayPauseButton();
+        }
+
+        function togglePlayPause() {
+            if (audio.paused) {
+                audio.play();
+            } else {
+                audio.pause();
+            }
+            updatePlayPauseButton();
+        }
+
+        function updatePlayPauseButton() {
+            playPauseBtn.innerText = audio.paused ? "▶️" : "⏸️";
+        }
+
+        function nextSong() {
+            const nextIndex = (currentSongIndex + 1) % songList.length;
+            playSong(nextIndex);
+        }
+
+        function previousSong() {
+            const prevIndex = (currentSongIndex - 1 + songList.length) % songList.length;
+            playSong(prevIndex);
+        }
+
+        // Initialize on page load
+        window.addEventListener("load", function() {
+            createButtons();
+            initializeMusicPlayer();
+            dryGain.gain.value = 0.2;
+            wetGain.gain.value = 0.8;
+        });
+    </script>
 </body>
 </html>
