@@ -467,10 +467,10 @@
 
         // Music Player
         const songList = [
-            "Oh My God It's fartGOD.mp3",
-            "Shit Yo Pants feat. Thric3, aka Thick Rice, aka Thick Rick.mp3",
-            "I Need A Burrito.wav",
-            "Doo Doo Maker.mp3"
+            { name: "Oh My God It's fartGOD.mp3", url: "Oh%20My%20God%20It%27s%20fartGOD.mp3" },
+            { name: "Shit Yo Pants feat. Thric3, aka Thick Rice, aka Thick Rick.mp3", url: "Shit%20Yo%20Pants%20feat.%20Thric3%2C%20aka%20Thick%20Rice%2C%20aka%20Thick%20Rick.mp3" },
+            { name: "I Need A Burrito.wav", url: "I%20Need%20A%20Burrito.wav" },
+            { name: "Doo Doo Maker.mp3", url: "doo%20doo%20maker_1.mp3" }
         ];
 
         let currentSongIndex = 0;
@@ -486,7 +486,7 @@
             songList.forEach((song, index) => {
                 const option = document.createElement("option");
                 option.value = index;
-                option.innerText = song.replace(/\.[^/.]+$/, "");
+                option.innerText = song.name.replace(/\.[^/.]+$/, "");
                 songDropdown.appendChild(option);
             });
 
@@ -507,8 +507,8 @@
 
         function loadSong(index) {
             currentSongIndex = index;
-            audio.src = `${musicBaseURL}${songList[index]}`;
-            nowPlaying.innerText = songList[index].replace(/\.[^/.]+$/, "");
+            audio.src = `${musicBaseURL}${songList[index].url}`;
+            nowPlaying.innerText = songList[index].name.replace(/\.[^/.]+$/, "");
             songDropdown.value = index;
             updatePlayPauseButton();
         }
