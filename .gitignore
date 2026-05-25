@@ -1,0 +1,5 @@
+# Local Claude Code config / memory — never commit
+.claude/
+
+# macOS noise
+.DS_Store

@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#000">
+    <meta name="description" content="fartGOD — easy fart pad. Tap anywhere on the screen to play a fart.">
+    <title>fartGOD // EASY PADS</title>
+    <style>
+        :root {
+            --bg: #000;
+            --fg: #fff;
+            --accent: #ff5b1f;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            background: var(--bg);
+            color: var(--fg);
+            font-family: ui-sans-serif, system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -webkit-tap-highlight-color: transparent;
+            overflow: hidden;
+            overscroll-behavior: none;
+            touch-action: manipulation;
+        }
+
+        /* Visually hidden — for screen readers */
+        .sr {
+            position: absolute;
+            width: 1px; height: 1px;
+            padding: 0; margin: -1px;
+            overflow: hidden;
+            clip: rect(0,0,0,0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .pads {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(9, 1fr);
+            gap: 0;
+            width: 100vw;
+            height: 100vh;
+            height: 100dvh;
+        }
+
+        @media (orientation: landscape) {
+            .pads {
+                grid-template-columns: repeat(9, 1fr);
+                grid-template-rows: repeat(3, 1fr);
+            }
+        }
+
+        .pad {
+            position: relative;
+            background: var(--bg);
+            color: var(--fg);
+            border: 2px solid var(--fg);
+            font-family: inherit;
+            font-weight: 900;
+            font-size: clamp(28px, 8vmin, 96px);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            -webkit-user-select: none;
+            transition: background 60ms linear, color 60ms linear;
+            line-height: 1;
+            outline: none;
+            padding: 0;
+        }
+        /* Collapse adjacent borders so they don't double-up */
+        .pad { margin: -1px 0 0 -1px; }
+
+        .pad:hover { background: #111; }
+        .pad:active, .pad.fire {
+            background: var(--accent);
+            color: var(--bg);
+            border-color: var(--accent);
+        }
+        .pad:focus-visible {
+            outline: 4px solid var(--accent);
+            outline-offset: -8px;
+        }
+
+        /* Tiny header is always present for screen readers but invisible.
+           Sighted users see only the pads. */
+    </style>
+</head>
+<body>
+    <h1 class="sr">fartGOD — tap any pad to play a fart sound.</h1>
+    <main class="pads" id="pads" role="group" aria-label="27 fart sound pads"></main>
+
+    <script>
+    /* =========================================================
+       fartGOD // EASY PADS
+       Simplified one-screen pad layout designed for an
+       accessibility-first experience. No music player, no FX,
+       no chrome. Tap any pad → instant fart.
+       ========================================================= */
+
+    const baseURL = "https://raw.githubusercontent.com/iamfartgod/iamfartgod.github.io/main/FartGodSamplePack/";
+    const sampleFiles = Array.from({length: 27}, (_, i) => `Fart${i+1}.wav`);
+
+    const AC = window.AudioContext || window.webkitAudioContext;
+    const ctx = new AC();
+
+    // Pre-warm/cache the buffers so the first tap is instant
+    const cache = new Map();
+    function loadSample(file) {
+        if (cache.has(file)) return cache.get(file);
+        const p = fetch(baseURL + file)
+            .then(r => r.arrayBuffer())
+            .then(d => ctx.decodeAudioData(d));
+        cache.set(file, p);
+        return p;
+    }
+    // Background pre-load — non-blocking
+    sampleFiles.forEach(loadSample);
+
+    // Monophonic playback — each new tap cuts the previous voice
+    // with a tiny linear fade so two pads can't pile up.
+    let voice = null;
+    function killVoice(at) {
+        if (!voice) return;
+        const { src, gain } = voice;
+        try {
+            gain.gain.cancelScheduledValues(at);
+            gain.gain.setValueAtTime(gain.gain.value, at);
+            gain.gain.linearRampToValueAtTime(0.0001, at + 0.012);
+            src.stop(at + 0.02);
+        } catch (e) {}
+        voice = null;
+    }
+
+    async function playSample(file, padEl) {
+        if (ctx.state === 'suspended') await ctx.resume();
+        const buf = await loadSample(file);
+        const now = ctx.currentTime;
+        killVoice(now);
+        const src = ctx.createBufferSource();
+        src.buffer = buf;
+        const gain = ctx.createGain();
+        gain.gain.value = 1;
+        src.connect(gain);
+        gain.connect(ctx.destination);
+        src.start(now);
+        voice = { src, gain };
+        src.onended = () => { if (voice && voice.src === src) voice = null; };
+
+        // Visual + haptic feedback
+        if (padEl) {
+            padEl.classList.add('fire');
+            setTimeout(() => padEl.classList.remove('fire'), 120);
+        }
+        if (navigator.vibrate) navigator.vibrate(20);
+    }
+
+    // Build the pads
+    const padsEl = document.getElementById('pads');
+    sampleFiles.forEach((file, i) => {
+        const b = document.createElement('button');
+        b.className = 'pad';
+        b.type = 'button';
+        b.textContent = String(i + 1);
+        b.setAttribute('aria-label', `Play fart number ${i + 1}`);
+        const trigger = (e) => {
+            e.preventDefault();
+            playSample(file, b);
+        };
+        b.addEventListener('pointerdown', trigger);
+        // Keyboard support — Enter / Space (browser handles natively, but ensure it fires)
+        b.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                playSample(file, b);
+            }
+        });
+        padsEl.appendChild(b);
+    });
+
+    // Number-key shortcut for desktop users — 1-9 plays first 9 pads.
+    // Escape returns to the full site.
+    window.addEventListener('keydown', (e) => {
+        if (e.repeat) return;
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            window.location.href = 'index.html';
+            return;
+        }
+        const n = parseInt(e.key);
+        if (!isNaN(n) && n >= 1 && n <= 9) {
+            playSample(sampleFiles[n - 1], padsEl.children[n - 1]);
+        }
+    });
+
+    // First-touch unlock for iOS audio context
+    const unlock = () => {
+        if (ctx.state === 'suspended') ctx.resume();
+        window.removeEventListener('touchstart', unlock);
+        window.removeEventListener('pointerdown', unlock);
+    };
+    window.addEventListener('touchstart', unlock, { passive: true });
+    window.addEventListener('pointerdown', unlock);
+    </script>
+</body>
+</html>
