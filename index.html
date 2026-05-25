@@ -822,6 +822,27 @@
             .gfx .gfx-knob:not(:last-child) { border-bottom: 1px solid var(--fg); }
         }
 
+        /* REC arm button */
+        .seq-transport button.rec.on {
+            background: var(--danger);
+            color: var(--fg);
+            animation: rec-pulse 1s ease-in-out infinite;
+        }
+        @keyframes rec-pulse {
+            0%, 100% { opacity: 1; }
+            50%      { opacity: 0.55; }
+        }
+        .seq-transport button.metro.on {
+            background: var(--accent-2);
+            color: var(--bg);
+        }
+
+        /* Push BPM + STEPS to the right side of the seq bar */
+        .stepper.bpm-stepper { margin-left: auto; }
+        @media (max-width: 700px) {
+            .stepper.bpm-stepper { margin-left: 0; }
+        }
+
         /* Export button — drag to DAW */
         .seq-transport button.export {
             background: var(--accent-2);
@@ -1165,7 +1186,7 @@
             <h1>FART<span class="slash">/</span>GOD</h1>
             <div class="tag">
                 <div>// <b>27</b> SAMPLES &nbsp; · &nbsp; <b>4</b> TRACKS &nbsp; · &nbsp; <b>16</b>-STEP SEQ</div>
-                <div>BUY THE PACK ↓</div>
+                <div>SUPPORT A FARTIST ↓</div>
             </div>
         </header>
 
@@ -1243,7 +1264,7 @@
                     </div>
                 </div>
                 <a class="cta" href="https://fartgod.gumroad.com/l/fartGODSamplePack" target="_blank" rel="noopener">
-                    <span>BUY THE PACK</span>
+                    <span>SUPPORT A FARTIST</span>
                     <span class="arrow">→</span>
                 </a>
             </aside>
@@ -1284,11 +1305,14 @@
                     <div class="seq-bar">
                         <div class="seq-transport">
                             <button id="seq-play" class="play" title="Play / Stop">▶</button>
+                            <button id="seq-rec" class="rec" title="Record-arm — when on, the QWERTY keyboard writes hits into the running sequence">● REC</button>
+                            <button id="seq-metro" class="metro" title="Metronome — clicks on every downbeat">MET</button>
                             <button id="seq-clear" title="Clear current pad">CLR</button>
                             <button id="seq-clear-all" title="Clear all sequences">CLR ALL</button>
+                            <button id="seq-dup" title="Double the pattern length and duplicate every pad's steps into the second half">× 2</button>
                             <button id="seq-export" class="export empty" title="Click to download · Hold + drag to DAW">EXPORT</button>
                         </div>
-                        <div class="stepper">
+                        <div class="stepper bpm-stepper">
                             <span class="slbl">BPM</span>
                             <button class="minus" id="bpm-minus">−</button>
                             <input type="number" id="bpm-input" min="40" max="240" value="120">
@@ -1658,7 +1682,9 @@
         if (armedIndex === null) return;
         const m = keyMap[key];
         if (!m) return;
-        triggerSample(sampleFiles[armedIndex], m.semi + octave * 12);
+        const semi = m.semi + octave * 12;
+        triggerSample(sampleFiles[armedIndex], semi);
+        recordHit(semi);
         const el = document.querySelector(`.wkey[data-key="${key}"], .bkey[data-key="${key}"]`);
         if (el) {
             el.classList.add('fire');
@@ -1740,7 +1766,9 @@
     let schedTimer = null;
     const LOOKAHEAD_MS = 25;
     const SCHEDULE_AHEAD = 0.1;
-    const sequences = sampleFiles.map(() => new Array(STEPS_MAX).fill(false));
+    // Each step holds either null (off) or a semitone-offset number (on, at that pitch).
+    // Stored at MAX size; setStepCount only changes the *visible* window.
+    const sequences = sampleFiles.map(() => new Array(STEPS_MAX).fill(null));
 
     // Modes: PADS | SEQ | GRAN
     let mode = 'PADS';
@@ -1779,14 +1807,16 @@
         const seq = armedIndex === null ? null : sequences[armedIndex];
         for (let i = 0; i < stepCount; i++) {
             const s = document.createElement('button');
-            s.className = 'step' + (i % 4 === 0 ? ' beat' : '') + (seq && seq[i] ? ' on' : '');
+            const isOn = seq && seq[i] !== null;
+            s.className = 'step' + (i % 4 === 0 ? ' beat' : '') + (isOn ? ' on' : '');
             s.dataset.step = i;
             s.innerHTML = `<span class="dot"></span><span>${String(i+1).padStart(2,'0')}</span>`;
             s.disabled = seq === null;
             s.addEventListener('click', () => {
                 if (armedIndex === null) return;
-                sequences[armedIndex][i] = !sequences[armedIndex][i];
-                s.classList.toggle('on', sequences[armedIndex][i]);
+                const cur = sequences[armedIndex][i];
+                sequences[armedIndex][i] = cur === null ? 0 : null; // root-pitch on toggle
+                s.classList.toggle('on', sequences[armedIndex][i] !== null);
                 refreshPadIndicators();
                 markExportDirty();
             });
@@ -1797,7 +1827,7 @@
 
     function refreshPadIndicators() {
         [...padsEl.children].forEach((el, idx) => {
-            const hasAny = sequences[idx].slice(0, stepCount).some(v => v);
+            const hasAny = sequences[idx].slice(0, stepCount).some(v => v !== null);
             el.classList.toggle('has-seq', hasAny);
         });
     }
@@ -1808,6 +1838,12 @@
         if (cell) cell.classList.add('now');
         document.getElementById('step-counter').textContent = `${String(step+1).padStart(2,'0')}/${String(stepCount).padStart(2,'0')}`;
     }
+
+    // Live recording state — when armed, QWERTY keypresses write to the
+    // step closest to "now" in the running sequence.
+    let recArmed = false;
+    let liveStep = 0;
+    let liveStepTime = 0;
 
     // Scheduler (Chris Wilson lookahead pattern)
     const drawQueue = [];
@@ -1821,24 +1857,65 @@
     }
     function scheduleStep(step, when) {
         for (let i = 0; i < sequences.length; i++) {
-            if (sequences[i][step]) {
+            const semi = sequences[i][step];
+            if (semi !== null) {
                 loadSample(sampleFiles[i]).then(buf => {
-                    // Account for buffer load latency: if 'when' already past, play asap
+                    // If buffer load was slow and 'when' already passed, play asap.
                     const t = Math.max(when, ctx.currentTime);
-                    playBufferAt(buf, 0, t);
+                    playBufferAt(buf, semi, t);
                 });
             }
         }
+        // Metronome click on every quarter-note (every 4th 16th-step)
+        if (metronomeOn && step % 4 === 0) {
+            fireMetronomeClick(when, step === 0);
+        }
         drawQueue.push({step, time: when});
+    }
+
+    // Synthesized click — routed direct to destination so the DJ filter,
+    // reverb, and pads volume don't touch it (it's a reference, not music).
+    let metronomeOn = false;
+    function fireMetronomeClick(when, isDownbeat) {
+        const osc = ctx.createOscillator();
+        const g = ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.value = isDownbeat ? 1800 : 1200;
+        const peak = isDownbeat ? 0.35 : 0.18;
+        g.gain.setValueAtTime(0.0001, when);
+        g.gain.exponentialRampToValueAtTime(peak, when + 0.001);
+        g.gain.exponentialRampToValueAtTime(0.0001, when + 0.04);
+        osc.connect(g);
+        g.connect(ctx.destination);
+        osc.start(when);
+        osc.stop(when + 0.05);
     }
     function drawLoop() {
         requestAnimationFrame(drawLoop);
         while (drawQueue.length && drawQueue[0].time <= ctx.currentTime) {
-            const {step} = drawQueue.shift();
+            const {step, time} = drawQueue.shift();
+            liveStep = step;
+            liveStepTime = time;
             if (mode === 'SEQ') highlightStep(step);
         }
     }
     drawLoop();
+
+    // Record a hit at the step closest to "now". Quantizes forward if we're
+    // past the midpoint of the current step.
+    function recordHit(semitones) {
+        if (!recArmed || !isSeqPlaying || armedIndex === null) return;
+        const stepDur = (60 / bpm) / 4;
+        const elapsed = ctx.currentTime - liveStepTime;
+        let step = liveStep;
+        if (elapsed > stepDur / 2) step = (step + 1) % stepCount;
+        sequences[armedIndex][step] = semitones;
+        // Light it up immediately if visible
+        const cell = stepsEl.querySelector(`.step[data-step="${step}"]`);
+        if (cell) cell.classList.add('on');
+        refreshPadIndicators();
+        markExportDirty();
+    }
 
     async function startSeq() {
         if (ctx.state === 'suspended') await ctx.resume();
@@ -1851,6 +1928,8 @@
         isSeqPlaying = true;
         currentStep = 0;
         nextNoteTime = ctx.currentTime + 0.06;
+        liveStep = 0;
+        liveStepTime = nextNoteTime;
         seqPlay.classList.add('on');
         seqPlay.textContent = '■';
         schedTimer = setInterval(scheduler, LOOKAHEAD_MS);
@@ -1865,16 +1944,47 @@
     }
 
     seqPlay.addEventListener('click', () => isSeqPlaying ? stopSeq() : startSeq());
+
+    const seqRec = document.getElementById('seq-rec');
+    seqRec.addEventListener('click', () => {
+        recArmed = !recArmed;
+        seqRec.classList.toggle('on', recArmed);
+        seqRec.title = recArmed
+            ? 'Record ARMED — typed keys write into the running sequence. Click to disarm.'
+            : 'Record-arm — when on, the QWERTY keyboard writes hits into the running sequence';
+    });
+
+    const seqMetro = document.getElementById('seq-metro');
+    seqMetro.addEventListener('click', () => {
+        metronomeOn = !metronomeOn;
+        seqMetro.classList.toggle('on', metronomeOn);
+    });
+
+    // Duplicate the current bar — doubles step count and copies every pad's
+    // pattern into the new second half. Clips to STEPS_MAX if needed.
+    const seqDup = document.getElementById('seq-dup');
+    seqDup.addEventListener('click', () => {
+        const newCount = Math.min(STEPS_MAX, stepCount * 2);
+        if (newCount === stepCount) return; // already at max
+        const old = stepCount;
+        for (let i = 0; i < sequences.length; i++) {
+            const seq = sequences[i];
+            for (let s = old; s < newCount; s++) {
+                seq[s] = seq[s - old];
+            }
+        }
+        setStepCount(newCount);
+    });
     seqClear.addEventListener('click', () => {
         if (armedIndex === null) return;
-        sequences[armedIndex].fill(false);
+        sequences[armedIndex].fill(null);
         renderSteps();
         refreshPadIndicators();
         markExportDirty();
     });
     seqClearAll.addEventListener('click', () => {
         if (!confirm('Clear ALL sequences?')) return;
-        sequences.forEach(s => s.fill(false));
+        sequences.forEach(s => s.fill(null));
         renderSteps();
         refreshPadIndicators();
         markExportDirty();
@@ -2268,13 +2378,14 @@
     }
 
     async function renderSequenceToBlob() {
-        const hasAny = sequences.some(s => s.slice(0, stepCount).some(v => v));
+        const hasAny = sequences.some(s => s.slice(0, stepCount).some(v => v !== null));
         if (!hasAny) return null;
         const stepDur = (60 / bpm) / 4;
         const patternDur = stepCount * stepDur;
-        const tail = 2; // seconds of reverb tail
+        // Render to exactly the pattern length — no reverb tail. The user
+        // wants clean loops they can drop in a DAW and tile seamlessly.
         const sr = ctx.sampleRate;
-        const totalSamples = Math.ceil((patternDur + tail) * sr);
+        const totalSamples = Math.ceil(patternDur * sr);
         const off = new OfflineAudioContext(2, totalSamples, sr);
 
         const offBus = off.createGain();
@@ -2301,19 +2412,20 @@
         // Preload needed sample buffers (already cached in main ctx)
         const needed = new Set();
         sequences.forEach((s, i) => {
-            if (s.slice(0, stepCount).some(v => v)) needed.add(i);
+            if (s.slice(0, stepCount).some(v => v !== null)) needed.add(i);
         });
         const bufMap = new Map();
         await Promise.all([...needed].map(async i => bufMap.set(i, await loadSample(sampleFiles[i]))));
 
-        // Schedule every active step
+        // Schedule every active step at its recorded pitch
         for (let step = 0; step < stepCount; step++) {
             const when = step * stepDur;
             for (let i = 0; i < sequences.length; i++) {
-                if (sequences[i][step]) {
+                const semi = sequences[i][step];
+                if (semi !== null) {
                     const buf = bufMap.get(i);
                     if (!buf) continue;
-                    scheduleVoice(off, offDry, offConv, buf, 0, when, false);
+                    scheduleVoice(off, offDry, offConv, buf, semi, when, false);
                 }
             }
         }
@@ -2450,7 +2562,7 @@
     loadSong(0);
     setOctave(0);
     renderSteps();
-    setReverbStyle('MEDIUM PLATE');
+    setReverbStyle('ORIGINAL');
 
     const unlock = () => {
         if (ctx.state === 'suspended') ctx.resume();
