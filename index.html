@@ -442,6 +442,9 @@
         .pack-head-actions button:first-child { border-left: none; }
         .pack-head-actions button.on { background: var(--accent); color: var(--bg); }
         .pack-head-actions button.mode-seq { background: var(--accent-2); color: var(--bg); }
+        .pack-head-actions button.mode-tab.on[data-mode="PADS"] { background: var(--accent);   color: var(--bg); }
+        .pack-head-actions button.mode-tab.on[data-mode="SEQ"]  { background: var(--accent-2); color: var(--bg); }
+        .pack-head-actions button.mode-tab.on[data-mode="GRAN"] { background: #b06bff;         color: var(--bg); }
 
         .pads {
             display: grid;
@@ -1165,6 +1168,109 @@
         ::-webkit-scrollbar { height: 8px; width: 8px; }
         ::-webkit-scrollbar-track { background: var(--bg); }
         ::-webkit-scrollbar-thumb { background: var(--fg); }
+
+        /* ============================================================
+           CONDENSED MOBILE LAYOUT
+           Phone-portrait gets a stripped-down view: small player,
+           prominent pads, no GLOBAL FX, pads area gets replaced
+           by SEQ or GRAN panel when active (tab-style switching).
+           ============================================================ */
+        @media (max-width: 700px) {
+            .wrap { padding: 10px 10px 80px; }
+
+            /* Topbar — keep but smaller */
+            .topbar { padding: 6px 10px; font-size: 9px; margin-bottom: 10px; }
+
+            /* FART CANNON — keep but tighter */
+            .cannon { padding: 10px 12px; margin-bottom: 10px; gap: 6px; }
+            .cannon-lbl, .cannon-sub { display: none; }
+            .cannon-name { font-size: 22px; text-align: left; min-width: 0; }
+            .cannon-arrow { font-size: 22px; }
+
+            /* Hero — compact, single-line vibe */
+            .hero { padding: 12px 14px 0; margin-bottom: 10px; }
+            .hero h1 { font-size: 42px; line-height: 0.95; }
+            .hero .tag { font-size: 9px; padding: 8px 0; margin-top: 8px; }
+
+            /* Main grid: stacked */
+            .grid { gap: 10px; }
+
+            /* Player — compact */
+            .player .module-head { padding: 6px 12px; font-size: 10px; }
+            .player .module-body { padding: 10px; gap: 10px; }
+            .player .now { padding-bottom: 8px; }
+            .player .now .track { font-size: 17px; line-height: 1.05; }
+            .player .now .lbl  { font-size: 9px; margin-bottom: 4px; }
+            .player .now .time { font-size: 10px; }
+            .viz { height: 56px; }
+            .progress { height: 10px; }
+            .song-pick select { padding: 9px 12px; font-size: 12px; padding-right: 30px; }
+            .song-pick label  { padding: 0 10px; font-size: 10px; }
+            .transport { /* keep */ }
+            .tbtn { padding: 11px 4px; font-size: 13px; min-height: 44px; }
+            .knob-row { grid-template-columns: 1fr; }
+            .knob { padding: 8px 12px; border-right: none; border-bottom: 2px solid var(--fg); }
+            .knob:last-child { border-bottom: none; }
+            .rev-cycle { height: 26px; margin: 2px 0 6px; }
+            .rev-cycle button { padding: 0 10px; font-size: 11px; }
+            .rev-cycle .name { font-size: 10px; }
+
+            /* Buy block — compact, still prominent */
+            .buy { padding: 14px; min-height: auto; }
+            .buy h2 { font-size: 30px; line-height: 1; margin-bottom: 6px; }
+            .buy .detail { font-size: 9px; gap: 4px 12px; margin-top: 6px; }
+            .buy .detail div span { font-size: 8px; }
+            .buy .cta { padding: 12px 14px; font-size: 12px; margin-top: 14px; }
+            .buy .barcode { font-size: 8px; padding: 4px 8px; }
+
+            /* GLOBAL FX — hidden on phone */
+            .gfx { display: none; }
+
+            /* Pack module — compact head, tab strip */
+            .pack { margin-top: 10px; }
+            .pack .module-head { padding: 6px 8px; font-size: 9px; flex-wrap: nowrap; gap: 4px; }
+            #pack-head-title { display: none; } /* save space — tabs make context clear */
+            .pack-head-actions { width: 100%; justify-content: flex-end; }
+            .pack-head-actions button { padding: 6px 10px; font-size: 10px; flex: 1; }
+            .pack-head-actions button#toggle-kbd { flex: 0 0 auto; }
+
+            /* PADS hidden when not in PADS mode — the sequencer / granular
+               panels take over that real estate. */
+            body.mode-seq  .pack .pads,
+            body.mode-gran .pack .pads { display: none; }
+
+            .pad { min-height: 70px; padding: 12px 8px 10px; }
+            .pad .num { font-size: 9px; }
+            .pad .name { font-size: 12px; }
+
+            /* Seq panel — compact controls */
+            .seq-bar { flex-wrap: wrap; }
+            .seq-transport button { padding: 10px 8px; font-size: 11px; min-width: 0; flex: 1; }
+            .stepper.bpm-stepper { margin-left: 0; flex: 1; }
+            .stepper { flex: 1; }
+            .stepper .slbl { padding: 0 8px; font-size: 9px; }
+            .stepper input[type="number"] { width: 40px; font-size: 12px; }
+            .stepper button { padding: 0 10px; font-size: 14px; }
+            .seq-editing { padding: 8px 12px; font-size: 9px; }
+            .step { min-height: 50px; min-width: 30px; font-size: 9px; padding: 10px 1px 8px; }
+
+            /* Gran panel — compact knobs */
+            .gran-bar { flex-wrap: wrap; }
+            .gran-info { padding: 0 10px; font-size: 10px; min-height: 38px; }
+            .gran-knob { padding: 8px 12px; }
+
+            /* Footer */
+            .footer { padding-top: 8px; font-size: 8px; }
+        }
+        @media (max-width: 420px) {
+            /* The smallest screens — squeeze further */
+            .hero h1 { font-size: 34px; }
+            .pads { grid-template-columns: repeat(3, 1fr); }
+            .pad { min-height: 64px; padding: 10px 6px 8px; }
+            .pad .name { font-size: 11px; }
+            .tbtn { font-size: 12px; padding: 10px 2px; min-height: 42px; }
+            .seq-transport button { font-size: 10px; padding: 9px 4px; }
+        }
     </style>
 </head>
 <body>
@@ -1294,7 +1400,9 @@
             <div class="module-head">
                 <span id="pack-head-title">// PADS.27 &nbsp;·&nbsp; SELECT PAD → PLAY ON KEYBOARD</span>
                 <div class="pack-head-actions">
-                    <button id="mode-btn">MODE: PADS</button>
+                    <button class="mode-tab on" data-mode="PADS">PADS</button>
+                    <button class="mode-tab" data-mode="SEQ">SEQ</button>
+                    <button class="mode-tab" data-mode="GRAN">GRAN</button>
                     <button id="toggle-kbd">SHOW KBD</button>
                 </div>
             </div>
@@ -1752,8 +1860,8 @@
         kbdToggle.textContent = show ? 'HIDE KBD' : 'SHOW KBD';
     }
     kbdToggle.addEventListener('click', () => setKbd(!kbdWrap.classList.contains('show')));
-    const startShow = (window.matchMedia('(max-width: 900px)').matches) || ('ontouchstart' in window);
-    setKbd(startShow);
+    // Hidden by default everywhere — user opens it with SHOW KBD when wanted.
+    setKbd(false);
 
     // ---------- Sequencer ----------
     const STEPS_MIN = 4, STEPS_MAX = 32;
@@ -1774,7 +1882,7 @@
     let mode = 'PADS';
     const seqPanel = document.getElementById('seq-panel');
     const granPanel = document.getElementById('gran-panel');
-    const modeBtn = document.getElementById('mode-btn');
+    const modeTabs = document.querySelectorAll('.mode-tab');
     const packTitle = document.getElementById('pack-head-title');
     const stepsEl = document.getElementById('seq-steps');
     const seqPlay = document.getElementById('seq-play');
@@ -1786,9 +1894,11 @@
         const isSeq = m === 'SEQ', isGran = m === 'GRAN';
         seqPanel.classList.toggle('show', isSeq);
         granPanel.classList.toggle('show', isGran);
-        modeBtn.classList.toggle('mode-seq', isSeq);
-        modeBtn.classList.toggle('mode-gran', isGran);
-        modeBtn.textContent = `MODE: ${m}`;
+        // Body class drives the mobile rule that hides .pads when in SEQ/GRAN
+        document.body.classList.toggle('mode-pads', m === 'PADS');
+        document.body.classList.toggle('mode-seq',  isSeq);
+        document.body.classList.toggle('mode-gran', isGran);
+        modeTabs.forEach(t => t.classList.toggle('on', t.dataset.mode === m));
         if (isSeq)      packTitle.textContent = '// PADS.27 · SEQ MODE · PICK PAD → TOGGLE STEPS';
         else if (isGran)packTitle.textContent = '// PADS.27 · GRAN MODE · PICK PAD → GRANULIZE';
         else            packTitle.textContent = '// PADS.27 · SELECT PAD → PLAY ON KEYBOARD';
@@ -1796,10 +1906,7 @@
         if (!isSeq && isSeqPlaying) stopSeq();
         if (!isGran && granPlaying) stopGran();
     }
-    modeBtn.addEventListener('click', () => {
-        const next = mode === 'PADS' ? 'SEQ' : mode === 'SEQ' ? 'GRAN' : 'PADS';
-        setMode(next);
-    });
+    modeTabs.forEach(t => t.addEventListener('click', () => setMode(t.dataset.mode)));
 
     function renderSteps() {
         stepsEl.innerHTML = '';
@@ -2563,6 +2670,7 @@
     setOctave(0);
     renderSteps();
     setReverbStyle('ORIGINAL');
+    setMode('PADS');
 
     const unlock = () => {
         if (ctx.state === 'suspended') ctx.resume();
