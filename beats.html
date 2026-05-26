@@ -407,6 +407,131 @@
         ::-webkit-scrollbar-track { background: var(--bg); }
         ::-webkit-scrollbar-thumb { background: var(--fg); }
 
+        /* Pad trim affordances */
+        .pad.has-trim {
+            box-shadow: inset 0 0 0 2px var(--accent-2);
+        }
+        .pad.long-pressed { outline: 3px solid var(--accent-2); outline-offset: -3px; }
+
+        /* Trim modal — waveform + start/end handles */
+        .trim-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.88);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            touch-action: none;
+        }
+        .trim-modal.show { display: flex; }
+        .trim-content {
+            background: var(--bg);
+            border: 2px solid var(--fg);
+            width: 100%;
+            max-width: 640px;
+        }
+        .trim-head {
+            background: var(--fg);
+            color: var(--bg);
+            padding: 10px 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.18em;
+            font-weight: 800;
+            border-bottom: 2px solid var(--fg);
+        }
+        .trim-head b { color: var(--accent); }
+        .trim-head button {
+            background: var(--bg);
+            color: var(--fg);
+            border: none;
+            padding: 4px 14px;
+            font-family: inherit;
+            font-weight: 800;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.16em;
+            cursor: pointer;
+            min-height: 36px;
+        }
+        .trim-head button:hover { background: var(--accent); color: var(--bg); }
+        .trim-wave-wrap {
+            position: relative;
+            height: 180px;
+            background: #050505;
+            overflow: hidden;
+            border-bottom: 2px solid var(--fg);
+            touch-action: none;
+            user-select: none;
+        }
+        .trim-canvas { width: 100%; height: 100%; display: block; }
+        .trim-region {
+            position: absolute;
+            top: 0; bottom: 0;
+            background: rgba(255, 91, 31, 0.18);
+            border-left: 2px solid var(--accent);
+            border-right: 2px solid var(--accent);
+            pointer-events: none;
+            z-index: 1;
+        }
+        .trim-handle {
+            position: absolute;
+            top: 0; bottom: 0;
+            width: 28px;            /* big touch target on mobile */
+            margin-left: -14px;
+            cursor: ew-resize;
+            z-index: 3;
+            background: transparent;
+            touch-action: none;
+        }
+        .trim-handle::after {
+            content: "";
+            position: absolute;
+            left: 12px;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background: var(--accent);
+        }
+        .trim-handle:active::after { background: var(--accent-2); }
+        .trim-controls {
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.18em;
+            color: var(--dim);
+            flex-wrap: wrap;
+        }
+        .trim-controls b { color: var(--accent); font-weight: 700; }
+        .trim-controls button {
+            background: var(--bg);
+            color: var(--fg);
+            border: 2px solid var(--fg);
+            padding: 10px 14px;
+            font-family: inherit;
+            font-weight: 800;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.16em;
+            cursor: pointer;
+            min-height: 44px;
+        }
+        .trim-controls button:hover { background: var(--fg); color: var(--bg); }
+        .trim-controls #trim-preview { margin-left: auto; }
+        @media (max-width: 520px) {
+            .trim-controls { gap: 8px; padding: 10px; font-size: 10px; }
+            .trim-controls button { padding: 8px 10px; font-size: 10px; min-width: 0; }
+            .trim-controls #trim-preview { margin-left: 0; }
+        }
+
         /* Start gate — definitive iOS-safe audio unlock. The user has to
            tap once before we let any audio code run, which guarantees we
            perform ctx.resume() + a silent buffer inside a user gesture
@@ -565,7 +690,29 @@
         </section>
 
         <div class="foot">
-            fartGOD · BEATS · v1.1 · <a href="index.html">FULL SITE</a> · <a href="https://fartgod.gumroad.com/l/fartGODSamplePack" target="_blank" rel="noopener">SUPPORT A FARTIST</a>
+            fartGOD · BEATS · v1.2 · <a href="index.html">FULL SITE</a> · <a href="https://fartgod.gumroad.com/l/fartGODSamplePack" target="_blank" rel="noopener">SUPPORT A FARTIST</a>
+        </div>
+    </div>
+
+    <!-- Trim modal — opened by long-pressing a pad (450ms) -->
+    <div class="trim-modal" id="trim-modal" role="dialog" aria-modal="true">
+        <div class="trim-content">
+            <div class="trim-head">
+                <span>// TRIM · <b id="trim-pad-label">PAD 01</b></span>
+                <button id="trim-close" title="Close">DONE</button>
+            </div>
+            <div class="trim-wave-wrap">
+                <canvas class="trim-canvas" id="trim-canvas"></canvas>
+                <div class="trim-region" id="trim-region"></div>
+                <div class="trim-handle" id="trim-start-handle"></div>
+                <div class="trim-handle" id="trim-end-handle"></div>
+            </div>
+            <div class="trim-controls">
+                <div>START: <b id="trim-start-time">0 MS</b></div>
+                <div>END: <b id="trim-end-time">0 MS</b></div>
+                <button id="trim-preview">▶ PREVIEW</button>
+                <button id="trim-reset">RESET</button>
+            </div>
         </div>
     </div>
 
@@ -673,6 +820,8 @@
 
     // ---------- Sample cache + scheduling ----------
     const sampleFiles = Array.from({length: 27}, (_, i) => `Fart${i+1}.wav`);
+    // Per-pad trim — { start: 0..1, end: 0..1 } normalized to buffer.duration
+    const padTrim = sampleFiles.map(() => ({ start: 0, end: 1 }));
     const sampleCache = new Map();
     function loadSample(file) {
         if (sampleCache.has(file)) return sampleCache.get(file);
@@ -715,18 +864,24 @@
     // global PITCH every time — so the LENGTH knob shortens pad-clicks too.
     // Takes both the dry node and the reverb-HPF input so the same function
     // works for the live ctx and the offline render context.
-    function scheduleVoice(audioCtx, dryNode, revNode, buffer, semitones, when, mono) {
+    function scheduleVoice(audioCtx, dryNode, revNode, buffer, semitones, when, mono, padIndex) {
         const start = when || audioCtx.currentTime;
         const src = audioCtx.createBufferSource();
         src.buffer = buffer;
         const rate = Math.pow(2, (semitones + globalPitch) / 12);
         src.playbackRate.value = rate;
+
+        // Apply per-pad start/end trim to the BufferSource offset + duration.
+        const trim = (padIndex !== undefined && padIndex !== null) ? padTrim[padIndex] : { start: 0, end: 1 };
+        const offsetSec   = trim.start * buffer.duration;
+        const trimmedRange = Math.max(0.005, (trim.end - trim.start) * buffer.duration);
+        const naturalDur  = trimmedRange / rate;
+
         const g = audioCtx.createGain();
         src.connect(g);
-        const naturalDur = buffer.duration / rate;
         const lenSec = env.length / 1000;
         const playDur = Math.min(naturalDur, lenSec);
-        const aSec = 0.001;        // fixed micro-fade-in (no ATTACK knob anymore)
+        const aSec = 0.001;
         const rSec = 0.025;
         const aEnd = start + Math.min(aSec, playDur);
         const rStart = start + Math.max(aEnd - start, playDur - rSec);
@@ -736,8 +891,8 @@
         g.gain.setValueAtTime(1.0, rStart);
         g.gain.exponentialRampToValueAtTime(0.0001, stopAt);
         g.connect(dryNode);
-        g.connect(revNode);        // wet send through the HPF → convolver
-        src.start(start);
+        g.connect(revNode);
+        src.start(start, offsetSec);
         src.stop(stopAt + 0.05);
 
         if (mono) {
@@ -752,7 +907,7 @@
         try {
             if (ctx.state === 'suspended') await ctx.resume();
             const buf = await loadSample(sampleFiles[i]);
-            scheduleVoice(ctx, padsDry, revSend, buf, 0, 0, true);
+            scheduleVoice(ctx, padsDry, revSend, buf, 0, 0, true, i);
         } catch (e) {
             console.warn('[beats] preview failed:', e);
         }
@@ -767,13 +922,36 @@
         b.className = 'pad' + (i === 0 ? ' armed' : '');
         b.dataset.index = i;
         b.textContent = String(i + 1);
-        b.title = `Pad ${i + 1}`;
+        b.title = `Pad ${i + 1} — long-press to trim`;
+
+        // Long-press → open trim editor (mobile-friendly; same on desktop)
+        let pressTimer = null;
+        let longPressFired = false;
+        const LONG_PRESS_MS = 450;
+        b.addEventListener('pointerdown', () => {
+            longPressFired = false;
+            pressTimer = setTimeout(() => {
+                pressTimer = null;
+                longPressFired = true;
+                b.classList.add('long-pressed');
+                openTrimModal(i);
+                setTimeout(() => b.classList.remove('long-pressed'), 200);
+            }, LONG_PRESS_MS);
+        });
+        const cancelPress = () => {
+            if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
+        };
+        b.addEventListener('pointerup',     cancelPress);
+        b.addEventListener('pointercancel', cancelPress);
+        b.addEventListener('pointerleave',  cancelPress);
+
         b.addEventListener('click', () => {
+            if (longPressFired) {
+                longPressFired = false;
+                return; // swallow the click that follows a long-press
+            }
             const recording = recArmed && isPlaying;
             if (recording) {
-                // Record THIS pad's hit at the live step — finger-drumming.
-                // Keep the currently armed pad as-is so the step grid view
-                // doesn't jump while the user is performing.
                 recordHit(i);
             } else {
                 armPad(i);
@@ -882,7 +1060,7 @@
             if (semi !== null) {
                 loadSample(sampleFiles[i]).then(buf => {
                     const t = Math.max(when, ctx.currentTime);
-                    scheduleVoice(ctx, padsDry, revSend, buf, semi, t, false);
+                    scheduleVoice(ctx, padsDry, revSend, buf, semi, t, false, i);
                 });
             }
         }
@@ -1115,7 +1293,7 @@
                 if (semi !== null) {
                     const buf = bufMap.get(i);
                     if (!buf) continue;
-                    scheduleVoice(off, offDry, offSend, buf, semi, when, false);
+                    scheduleVoice(off, offDry, offSend, buf, semi, when, false, i);
                 }
             }
         }
@@ -1229,6 +1407,138 @@
             e.dataTransfer.setData('DownloadURL', `audio/wav:${exportFilename()}:${exportBlobUrl}`);
             e.dataTransfer.setData('text/uri-list', exportBlobUrl);
         } catch (err) {}
+    });
+
+    // ---------- Per-pad TRIM modal ----------
+    const trimModal       = document.getElementById('trim-modal');
+    const trimCanvas      = document.getElementById('trim-canvas');
+    const trimRegionEl    = document.getElementById('trim-region');
+    const trimStartHandle = document.getElementById('trim-start-handle');
+    const trimEndHandle   = document.getElementById('trim-end-handle');
+    const trimStartTime   = document.getElementById('trim-start-time');
+    const trimEndTime     = document.getElementById('trim-end-time');
+    const trimPadLabel    = document.getElementById('trim-pad-label');
+    let trimPadIndex = null;
+    let trimBuffer = null;
+
+    function drawTrimWaveform() {
+        if (!trimBuffer || !trimCanvas) return;
+        const dpr = window.devicePixelRatio || 1;
+        const cssW = trimCanvas.clientWidth || trimCanvas.parentElement.clientWidth;
+        const cssH = trimCanvas.clientHeight || 180;
+        trimCanvas.width  = cssW * dpr;
+        trimCanvas.height = cssH * dpr;
+        const cx = trimCanvas.getContext('2d');
+        cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        cx.fillStyle = '#050505';
+        cx.fillRect(0, 0, cssW, cssH);
+        const data = trimBuffer.getChannelData(0);
+        const samplesPerPixel = Math.max(1, Math.floor(data.length / cssW));
+        cx.fillStyle = '#c8ff00';
+        for (let x = 0; x < cssW; x++) {
+            let max = 0, min = 0;
+            const base = x * samplesPerPixel;
+            for (let j = 0; j < samplesPerPixel; j++) {
+                const v = data[base + j] || 0;
+                if (v > max) max = v;
+                if (v < min) min = v;
+            }
+            const yMax = (1 - max) * cssH / 2;
+            const yMin = (1 - min) * cssH / 2;
+            cx.fillRect(x, yMax, 1, Math.max(1, yMin - yMax));
+        }
+        // Dim outside the trim region
+        cx.fillStyle = 'rgba(0,0,0,0.55)';
+        const t = padTrim[trimPadIndex];
+        cx.fillRect(0, 0, t.start * cssW, cssH);
+        cx.fillRect(t.end * cssW, 0, cssW - t.end * cssW, cssH);
+    }
+
+    function updateTrimUI() {
+        if (trimPadIndex === null) return;
+        const t = padTrim[trimPadIndex];
+        const startPct = t.start * 100;
+        const endPct   = t.end   * 100;
+        trimStartHandle.style.left = startPct + '%';
+        trimEndHandle.style.left   = endPct   + '%';
+        trimRegionEl.style.left    = startPct + '%';
+        trimRegionEl.style.width   = (endPct - startPct) + '%';
+        const dur = trimBuffer ? trimBuffer.duration : 0;
+        trimStartTime.textContent = Math.round(t.start * dur * 1000) + ' MS';
+        trimEndTime.textContent   = Math.round(t.end   * dur * 1000) + ' MS';
+        drawTrimWaveform();
+        const padEl = padsEl.children[trimPadIndex];
+        if (padEl) {
+            const isDefault = t.start <= 0.001 && t.end >= 0.999;
+            padEl.classList.toggle('has-trim', !isDefault);
+        }
+    }
+
+    async function openTrimModal(i) {
+        trimPadIndex = i;
+        trimPadLabel.textContent = `PAD ${String(i+1).padStart(2,'0')} · FART ${i+1}`;
+        try { trimBuffer = await loadSample(sampleFiles[i]); }
+        catch (e) { console.warn('[beats] trim sample load failed', e); return; }
+        trimModal.classList.add('show');
+        requestAnimationFrame(() => requestAnimationFrame(updateTrimUI));
+    }
+
+    function closeTrimModal() {
+        trimModal.classList.remove('show');
+        trimPadIndex = null;
+        trimBuffer = null;
+        markExportDirty();
+    }
+
+    document.getElementById('trim-close').addEventListener('click', closeTrimModal);
+    trimModal.addEventListener('click', (e) => {
+        if (e.target === trimModal) closeTrimModal();
+    });
+    document.getElementById('trim-reset').addEventListener('click', () => {
+        if (trimPadIndex === null) return;
+        padTrim[trimPadIndex] = { start: 0, end: 1 };
+        updateTrimUI();
+    });
+    document.getElementById('trim-preview').addEventListener('click', () => {
+        if (trimPadIndex === null) return;
+        previewPad(trimPadIndex);
+    });
+
+    function makeTrimHandleDraggable(handle, key) {
+        const onDown = (downEv) => {
+            downEv.preventDefault();
+            downEv.stopPropagation();
+            const wrap = trimCanvas.parentElement;
+            const rect = wrap.getBoundingClientRect();
+            const move = (ev) => {
+                const cx = ev.clientX !== undefined ? ev.clientX :
+                           (ev.touches && ev.touches[0] ? ev.touches[0].clientX : 0);
+                let x = (cx - rect.left) / rect.width;
+                x = Math.max(0, Math.min(1, x));
+                const t = padTrim[trimPadIndex];
+                if (key === 'start') t.start = Math.min(x, t.end - 0.005);
+                else                 t.end   = Math.max(x, t.start + 0.005);
+                updateTrimUI();
+            };
+            const up = () => {
+                window.removeEventListener('pointermove', move);
+                window.removeEventListener('pointerup', up);
+                markExportDirty();
+            };
+            window.addEventListener('pointermove', move);
+            window.addEventListener('pointerup', up);
+        };
+        handle.addEventListener('pointerdown', onDown);
+    }
+    makeTrimHandleDraggable(trimStartHandle, 'start');
+    makeTrimHandleDraggable(trimEndHandle,   'end');
+
+    // Escape closes the modal (and tap on Done button)
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && trimModal.classList.contains('show')) {
+            e.preventDefault();
+            closeTrimModal();
+        }
     });
 
     // ---------- Boot ----------
