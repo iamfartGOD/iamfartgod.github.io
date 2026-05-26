@@ -24,8 +24,10 @@
             -webkit-tap-highlight-color: transparent;
             overflow: hidden;
             overscroll-behavior: none;
+            /* No scroll at all here — page is exactly one screen of pads */
             touch-action: manipulation;
         }
+        .pad { touch-action: manipulation; }
 
         /* Visually hidden — for screen readers */
         .sr {

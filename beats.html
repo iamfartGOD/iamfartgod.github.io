@@ -32,6 +32,10 @@
             line-height: 1.4;
             -webkit-font-smoothing: antialiased;
             -webkit-tap-highlight-color: transparent;
+            /* Vertical scroll only — disables double-tap zoom AND
+               horizontal swipe-pan on the whole page. */
+            touch-action: pan-y;
+            overscroll-behavior: none;
         }
         body {
             min-height: 100vh;
@@ -42,6 +46,10 @@
             overflow-x: hidden;
             padding-bottom: 60px;
         }
+        /* Sliders fully capture their touch — page can't scroll while dragging */
+        input[type="range"] { touch-action: none; }
+        /* Buttons / pads / steps: no double-tap-zoom, no gesture lag */
+        button, .pad, .step { touch-action: manipulation; }
 
         .wrap { max-width: 960px; margin: 0 auto; padding: 10px; }
 

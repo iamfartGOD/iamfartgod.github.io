@@ -32,7 +32,13 @@
             line-height: 1.4;
             -webkit-font-smoothing: antialiased;
             -webkit-tap-highlight-color: transparent;
+            /* Vertical scroll only — disables double-tap zoom AND
+               horizontal swipe-pan on the whole page. */
+            touch-action: pan-y;
+            overscroll-behavior: none;
         }
+        input[type="range"] { touch-action: none; }
+        button, .pad, .step, .wkey, .bkey { touch-action: manipulation; }
 
         body {
             min-height: 100vh;
