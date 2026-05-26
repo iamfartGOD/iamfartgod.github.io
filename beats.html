@@ -1238,56 +1238,63 @@
     sampleFiles.forEach(loadSample);
 
     // ---------- Audio unlock (start gate) ----------
-    // iOS Safari requires the FIRST createBufferSource().start() to happen
-    // inside a real user gesture. We use a silent <audio> loop too — that
-    // bumps the page into iOS "media playback" mode, which keeps Web
-    // Audio alive after backgrounding and slips past the silent switch
-    // in some configurations.
+    // Bulletproof: dismiss the gate IMMEDIATELY on any interaction so the
+    // user is never trapped. Audio init runs after, and any failure is
+    // logged to console — pad taps will retry the resume on their own.
     const startGate = document.getElementById('start-gate');
-    const startBtn = document.getElementById('start-btn');
+    const startBtn  = document.getElementById('start-btn');
     let audioStarted = false;
 
-    // Minimal silent WAV (~46 bytes), looped — iOS routes the tab as
-    // active media playback once this is running.
-    const silentLoop = new Audio(
-        'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA='
-    );
-    silentLoop.loop = true;
-    silentLoop.preload = 'auto';
+    function dismissGate() {
+        if (startGate) startGate.classList.add('gone');
+    }
 
     async function startAudio() {
         if (audioStarted) return;
+        audioStarted = true;
+        dismissGate();
+        // Best-effort: resume the AudioContext + play a 1-sample silent
+        // buffer (canonical iOS unlock). All wrapped so a throw can't
+        // strand the user.
         try {
-            // 1) resume the AudioContext synchronously within the gesture
             if (ctx.state === 'suspended') await ctx.resume();
             console.log('[beats] ctx.state after resume:', ctx.state);
-
-            // 2) play a 1-sample silent BufferSource — the canonical iOS unlock
             const warm = ctx.createBuffer(1, 1, 22050);
             const warmSrc = ctx.createBufferSource();
             warmSrc.buffer = warm;
             warmSrc.connect(ctx.destination);
             warmSrc.start(0);
-
-            // 3) start the silent <audio> loop so the tab counts as media
-            try { await silentLoop.play(); } catch (_) { /* OK if blocked */ }
-
-            audioStarted = true;
-            startGate.classList.add('gone');
-            // Re-kick preloads — earlier preloads may have rejected against
-            // a still-suspended ctx in Safari.
-            sampleFiles.forEach(loadSample);
         } catch (e) {
-            console.error('[beats] audio start failed:', e);
-            alert('Could not start audio. On iPhone, flip the silent switch OFF and turn the volume up, then refresh.');
+            console.warn('[beats] resume / warm buffer failed:', e);
         }
+        // Silent <audio> loop — gets iOS into "active media playback"
+        // mode. Constructed lazily because some iOS builds throw on the
+        // data URI at Audio() construction time, which would kill the
+        // whole script if we did it up top.
+        try {
+            const sl = new Audio(
+                'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA='
+            );
+            sl.loop = true;
+            await sl.play();
+        } catch (_) { /* ignore — best-effort */ }
+        // Re-kick preloads against a now-live ctx.
+        sampleFiles.forEach(loadSample);
     }
-    startBtn.addEventListener('click', startAudio);
-    startBtn.addEventListener('touchend', (e) => { e.preventDefault(); startAudio(); }, { passive: false });
 
-    // If the tab goes to the background (iOS aggressively suspends ctx),
-    // re-resume on return. Without this, switching apps and coming back
-    // can leave the sequencer running silently.
+    // Whole gate is a hit target (not just the button) and multiple event
+    // types so we catch a tap no matter what iOS decides to fire.
+    if (startGate) {
+        startGate.addEventListener('click',    () => { startAudio(); });
+        startGate.addEventListener('touchend', (e) => { e.preventDefault(); startAudio(); }, { passive: false });
+        startGate.addEventListener('pointerup',() => { startAudio(); });
+    }
+    if (startBtn) {
+        startBtn.addEventListener('click',     (e) => { e.stopPropagation(); startAudio(); });
+        startBtn.addEventListener('touchend',  (e) => { e.preventDefault(); e.stopPropagation(); startAudio(); }, { passive: false });
+    }
+
+    // If the tab goes to background, iOS suspends ctx. Re-resume on return.
     document.addEventListener('visibilitychange', () => {
         if (!document.hidden && audioStarted && ctx.state === 'suspended') {
             ctx.resume().catch(err => console.warn('[beats] resume on visibility failed:', err));
