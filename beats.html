@@ -543,7 +543,27 @@
         return p;
     }
 
-    function scheduleVoice(audioCtx, outNode, buffer, semitones, when) {
+    // Monophonic voice slot for live pad previews
+    let monoVoice = null;
+    function killMono(at) {
+        if (!monoVoice) return;
+        const { src, gain } = monoVoice;
+        try {
+            gain.gain.cancelScheduledValues(at);
+            gain.gain.setValueAtTime(gain.gain.value, at);
+            gain.gain.linearRampToValueAtTime(0.0001, at + 0.012);
+            src.stop(at + 0.02);
+        } catch (e) {}
+        monoVoice = null;
+    }
+
+    // Single voice scheduler used by:
+    //   - live pad-tap preview (mono = true)
+    //   - sequencer playback (mono = false)
+    //   - offline export render (mono = false)
+    // Applies the global env (ATTACK + LENGTH + auto 25ms release) and
+    // global PITCH every time — so the LENGTH knob shortens pad-clicks too.
+    function scheduleVoice(audioCtx, outNode, buffer, semitones, when, mono) {
         const start = when || audioCtx.currentTime;
         const src = audioCtx.createBufferSource();
         src.buffer = buffer;
@@ -566,37 +586,19 @@
         g.connect(outNode);
         src.start(start);
         src.stop(stopAt + 0.05);
+
+        if (mono) {
+            killMono(start);
+            monoVoice = { src, gain: g };
+            src.onended = () => { if (monoVoice && monoVoice.src === src) monoVoice = null; };
+        }
         return src;
     }
 
-    // Monophonic preview for pad clicks
-    let monoVoice = null;
-    function killMono(at) {
-        if (!monoVoice) return;
-        const { src, gain } = monoVoice;
-        try {
-            gain.gain.cancelScheduledValues(at);
-            gain.gain.setValueAtTime(gain.gain.value, at);
-            gain.gain.linearRampToValueAtTime(0.0001, at + 0.012);
-            src.stop(at + 0.02);
-        } catch (e) {}
-        monoVoice = null;
-    }
     async function previewPad(i) {
         if (ctx.state === 'suspended') await ctx.resume();
         const buf = await loadSample(sampleFiles[i]);
-        const start = ctx.currentTime;
-        killMono(start);
-        const src = ctx.createBufferSource();
-        src.buffer = buf;
-        src.playbackRate.value = Math.pow(2, globalPitch / 12);
-        const g = ctx.createGain();
-        g.gain.value = 1;
-        src.connect(g);
-        g.connect(padsBus);
-        src.start(start);
-        monoVoice = { src, gain: g };
-        src.onended = () => { if (monoVoice && monoVoice.src === src) monoVoice = null; };
+        scheduleVoice(ctx, padsBus, buf, 0, 0, true);
     }
 
     // ---------- Pads ----------
