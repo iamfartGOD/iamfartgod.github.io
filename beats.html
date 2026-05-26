@@ -439,7 +439,6 @@
                     <input type="number" id="step-count" min="4" max="32" value="16">
                     <button id="steps-plus">+</button>
                 </div>
-                <button id="dup" class="dup-btn" title="Double the pattern length, duplicate steps">× 2</button>
             </div>
         </section>
 
@@ -473,8 +472,8 @@
                     <div class="filter-track"><input type="range" id="filter" min="-1" max="1" step="0.005" value="0"></div>
                 </div>
                 <div class="knob">
-                    <div class="klbl"><span>// ATTACK</span><b id="att-v">0 MS</b></div>
-                    <input type="range" id="att" min="0" max="500" step="1" value="0">
+                    <div class="klbl"><span>// REVERB</span><b id="rev-v">25%</b></div>
+                    <input type="range" id="rev" min="0" max="1" step="0.01" value="0.25">
                 </div>
                 <div class="knob">
                     <div class="klbl"><span>// LENGTH</span><b id="len-v">FULL</b></div>
@@ -509,12 +508,29 @@
 
     const baseURL = "https://raw.githubusercontent.com/iamfartgod/iamfartgod.github.io/main/FartGodSamplePack/";
 
-    // ---------- Audio graph (no reverb) ----------
+    // ---------- Audio graph ----------
+    //   voice → padsDry ┐
+    //                   ├→ padsBus → filterHPF → filterLPF → destination
+    //   voice → revHPF → convolver → padsWet ┘
+    // The 100 Hz HPF in front of the convolver keeps the plate from
+    // muddying up low-end with reverberated thump.
     const AC = window.AudioContext || window.webkitAudioContext;
     const ctx = new AC();
 
     const padsBus = ctx.createGain();
     padsBus.gain.value = 0.9;
+
+    const padsDry = ctx.createGain();
+    const padsWet = ctx.createGain();
+    padsDry.gain.value = 0.75;   // matches the 25% default mix
+    padsWet.gain.value = 0.25;
+
+    const reverbHPF = ctx.createBiquadFilter();
+    reverbHPF.type = 'highpass';
+    reverbHPF.frequency.value = 100;
+    reverbHPF.Q.value = 0.7;
+
+    const convolver = ctx.createConvolver();
 
     const filterHPF = ctx.createBiquadFilter();
     filterHPF.type = 'highpass';
@@ -525,12 +541,43 @@
     filterLPF.frequency.value = 20000;
     filterLPF.Q.value = 0.7;
 
+    padsDry.connect(padsBus);
+    reverbHPF.connect(convolver);
+    convolver.connect(padsWet);
+    padsWet.connect(padsBus);
     padsBus.connect(filterHPF);
     filterHPF.connect(filterLPF);
     filterLPF.connect(ctx.destination);
 
+    // Synthesize a smooth plate IR (~2s decay, lightly damped)
+    function makePlateIR() {
+        const sr = ctx.sampleRate;
+        const dur = 2.0;
+        const decay = 2.4;
+        const bright = 0.85;
+        const len = Math.floor(dur * sr);
+        const buf = ctx.createBuffer(2, len, sr);
+        for (let ch = 0; ch < 2; ch++) {
+            const data = buf.getChannelData(ch);
+            const pre = ch * Math.floor(sr * 0.003);
+            for (let i = 0; i < len; i++) {
+                const t = i / sr;
+                const envv = Math.exp(-decay * t);
+                const idx = i + (ch === 1 ? -pre : pre);
+                data[i] = (Math.random() * 2 - 1) * envv * (idx >= 0 ? 1 : 0);
+            }
+            let prev = 0;
+            for (let i = 0; i < len; i++) {
+                prev = prev + bright * (data[i] - prev);
+                data[i] = prev;
+            }
+        }
+        return buf;
+    }
+    convolver.buffer = makePlateIR();
+
     let globalPitch = 0;
-    const env = { attack: 0, length: 5000 };
+    const env = { length: 5000 };   // ATTACK removed; LENGTH is the only env knob
     let metVol = 0.35;
 
     // ---------- Sample cache + scheduling ----------
@@ -563,7 +610,9 @@
     //   - offline export render (mono = false)
     // Applies the global env (ATTACK + LENGTH + auto 25ms release) and
     // global PITCH every time — so the LENGTH knob shortens pad-clicks too.
-    function scheduleVoice(audioCtx, outNode, buffer, semitones, when, mono) {
+    // Takes both the dry node and the reverb-HPF input so the same function
+    // works for the live ctx and the offline render context.
+    function scheduleVoice(audioCtx, dryNode, revNode, buffer, semitones, when, mono) {
         const start = when || audioCtx.currentTime;
         const src = audioCtx.createBufferSource();
         src.buffer = buffer;
@@ -574,7 +623,7 @@
         const naturalDur = buffer.duration / rate;
         const lenSec = env.length / 1000;
         const playDur = Math.min(naturalDur, lenSec);
-        const aSec = Math.max(0.001, env.attack / 1000);
+        const aSec = 0.001;        // fixed micro-fade-in (no ATTACK knob anymore)
         const rSec = 0.025;
         const aEnd = start + Math.min(aSec, playDur);
         const rStart = start + Math.max(aEnd - start, playDur - rSec);
@@ -583,7 +632,8 @@
         g.gain.exponentialRampToValueAtTime(1.0, aEnd);
         g.gain.setValueAtTime(1.0, rStart);
         g.gain.exponentialRampToValueAtTime(0.0001, stopAt);
-        g.connect(outNode);
+        g.connect(dryNode);
+        g.connect(revNode);        // wet send through the HPF → convolver
         src.start(start);
         src.stop(stopAt + 0.05);
 
@@ -598,7 +648,7 @@
     async function previewPad(i) {
         if (ctx.state === 'suspended') await ctx.resume();
         const buf = await loadSample(sampleFiles[i]);
-        scheduleVoice(ctx, padsBus, buf, 0, 0, true);
+        scheduleVoice(ctx, padsDry, reverbHPF, buf, 0, 0, true);
     }
 
     // ---------- Pads ----------
@@ -725,7 +775,7 @@
             if (semi !== null) {
                 loadSample(sampleFiles[i]).then(buf => {
                     const t = Math.max(when, ctx.currentTime);
-                    scheduleVoice(ctx, padsBus, buf, semi, t);
+                    scheduleVoice(ctx, padsDry, reverbHPF, buf, semi, t, false);
                 });
             }
         }
@@ -801,17 +851,6 @@
         refreshPadIndicators();
         markExportDirty();
     });
-    document.getElementById('dup').addEventListener('click', () => {
-        const newCount = Math.min(STEPS_MAX, stepCount * 2);
-        if (newCount === stepCount) return;
-        const old = stepCount;
-        for (let i = 0; i < sequences.length; i++) {
-            const seq = sequences[i];
-            for (let s = old; s < newCount; s++) seq[s] = seq[s - old];
-        }
-        setStepCount(newCount);
-    });
-
     // BPM + Steps
     const bpmInput = document.getElementById('bpm');
     const stepInput = document.getElementById('step-count');
@@ -856,9 +895,11 @@
     filterKnob.addEventListener('dblclick', () => { filterKnob.value = 0; applyFilter(0); markExportDirty(); });
     applyFilter(0);
 
-    document.getElementById('att').addEventListener('input', e => {
-        env.attack = parseInt(e.target.value);
-        document.getElementById('att-v').textContent = env.attack + ' MS';
+    document.getElementById('rev').addEventListener('input', e => {
+        const mix = parseFloat(e.target.value);
+        padsDry.gain.value = 1 - mix;
+        padsWet.gain.value = mix;
+        document.getElementById('rev-v').textContent = Math.round(mix * 100) + '%';
         markExportDirty();
     });
     document.getElementById('len').addEventListener('input', e => {
@@ -929,13 +970,26 @@
         const totalSamples = Math.ceil(stepCount * stepDur * sr);
         const off = new OfflineAudioContext(2, totalSamples, sr);
         const offBus = off.createGain();
+        const offDry = off.createGain();
+        const offWet = off.createGain();
         offBus.gain.value = padsBus.gain.value;
+        offDry.gain.value = padsDry.gain.value;
+        offWet.gain.value = padsWet.gain.value;
+        const offRevHPF = off.createBiquadFilter();
+        offRevHPF.type = 'highpass';
+        offRevHPF.frequency.value = reverbHPF.frequency.value;
+        const offConv = off.createConvolver();
+        if (convolver.buffer) offConv.buffer = convolver.buffer;
         const offHPF = off.createBiquadFilter();
         offHPF.type = 'highpass';
         offHPF.frequency.value = filterHPF.frequency.value;
         const offLPF = off.createBiquadFilter();
         offLPF.type = 'lowpass';
         offLPF.frequency.value = filterLPF.frequency.value;
+        offDry.connect(offBus);
+        offRevHPF.connect(offConv);
+        offConv.connect(offWet);
+        offWet.connect(offBus);
         offBus.connect(offHPF);
         offHPF.connect(offLPF);
         offLPF.connect(off.destination);
@@ -950,7 +1004,7 @@
                 if (semi !== null) {
                     const buf = bufMap.get(i);
                     if (!buf) continue;
-                    scheduleVoice(off, offBus, buf, semi, when);
+                    scheduleVoice(off, offDry, offRevHPF, buf, semi, when, false);
                 }
             }
         }
