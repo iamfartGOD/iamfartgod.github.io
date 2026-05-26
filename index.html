@@ -2544,12 +2544,26 @@
     // Background-render the export so the blob is ready when the user drags.
     let exportBlobUrl = null;
     let renderToken = 0;
+    let renderInFlight = false;
     const exportBtn = document.getElementById('seq-export');
 
+    function exportHasContent() {
+        return sequences.some(s => s.slice(0, stepCount).some(v => v !== null));
+    }
+
     function updateExportButton() {
-        if (exportBlobUrl) {
+        if (renderInFlight) {
+            exportBtn.classList.remove('empty');
+            exportBtn.draggable = false;
+            exportBtn.textContent = 'RENDERING…';
+        } else if (exportBlobUrl) {
             exportBtn.classList.remove('empty');
             exportBtn.draggable = true;
+            exportBtn.textContent = 'DRAG WAV →';
+        } else if (exportHasContent()) {
+            // Has steps but no blob — must be still in the 200ms debounce.
+            exportBtn.classList.remove('empty');
+            exportBtn.draggable = false;
             exportBtn.textContent = 'EXPORT';
         } else {
             exportBtn.classList.add('empty');
@@ -2558,33 +2572,54 @@
         }
     }
 
+    async function doRender(myToken) {
+        renderInFlight = true;
+        updateExportButton();
+        try {
+            const blob = await renderSequenceToBlob();
+            if (myToken !== renderToken) return;
+            exportBlobUrl = blob ? URL.createObjectURL(blob) : null;
+        } catch (e) {
+            console.warn('Export render failed:', e);
+        } finally {
+            renderInFlight = false;
+            updateExportButton();
+        }
+    }
+
     function markExportDirty() {
         const myToken = ++renderToken;
-        // Tear down the stale blob right away so a drag now would fall back
-        // to a re-render instead of yielding outdated audio.
         if (exportBlobUrl) {
             URL.revokeObjectURL(exportBlobUrl);
             exportBlobUrl = null;
             updateExportButton();
         }
         // Debounce — wait 200ms in case more changes follow
-        setTimeout(async () => {
+        setTimeout(() => {
             if (myToken !== renderToken) return;
-            try {
-                const blob = await renderSequenceToBlob();
-                if (myToken !== renderToken) return;
-                exportBlobUrl = blob ? URL.createObjectURL(blob) : null;
-                updateExportButton();
-            } catch (e) {
-                console.warn('Export render failed:', e);
-            }
+            doRender(myToken);
         }, 200);
     }
 
+    // If the user presses the button before the 200ms debounce finishes,
+    // skip the wait and render immediately so the drag is ready right away.
+    exportBtn.addEventListener('mousedown', () => {
+        if (renderInFlight) return;
+        if (!exportBlobUrl && exportHasContent()) {
+            doRender(++renderToken);
+        }
+    });
+    exportBtn.addEventListener('touchstart', () => {
+        if (renderInFlight) return;
+        if (!exportBlobUrl && exportHasContent()) {
+            doRender(++renderToken);
+        }
+    }, { passive: true });
+
     const exportFilename = () => `fartGOD-${bpm}bpm-${stepCount}step.wav`;
 
-    exportBtn.addEventListener('click', (e) => {
-        if (exportBtn.classList.contains('empty') || !exportBlobUrl) return;
+    exportBtn.addEventListener('click', () => {
+        if (!exportBlobUrl) return;
         const a = document.createElement('a');
         a.href = exportBlobUrl;
         a.download = exportFilename();
@@ -2597,7 +2632,9 @@
         if (!exportBlobUrl) { e.preventDefault(); return; }
         try {
             e.dataTransfer.effectAllowed = 'copyMove';
-            // Chrome / Edge: DownloadURL lets the OS receive a file on drop.
+            // Chrome / Edge: DownloadURL hands the OS / target app a real
+            // file on drop. Browser writes a temp file behind the scenes
+            // and cleans it up — no manual cache management needed.
             e.dataTransfer.setData('DownloadURL',
                 `audio/wav:${exportFilename()}:${exportBlobUrl}`);
             e.dataTransfer.setData('text/uri-list', exportBlobUrl);
