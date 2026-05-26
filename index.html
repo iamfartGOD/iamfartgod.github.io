@@ -2729,15 +2729,20 @@
     renderSteps();
     setReverbStyle('ORIGINAL');
     setMode('PADS');
+    // Arm PAD 01 by default so typing the QWERTY-piano works right away
+    // without needing a click to select a pad first.
+    armPad(0);
 
     const unlock = () => {
         if (ctx.state === 'suspended') ctx.resume();
         ensureMediaSource();
         window.removeEventListener('touchstart', unlock);
         window.removeEventListener('mousedown', unlock);
+        window.removeEventListener('keydown', unlock);
     };
     window.addEventListener('touchstart', unlock, {passive:true});
     window.addEventListener('mousedown', unlock);
+    window.addEventListener('keydown', unlock);
     </script>
 </body>
 </html>

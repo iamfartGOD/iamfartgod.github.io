@@ -508,12 +508,19 @@
 
     const baseURL = "https://raw.githubusercontent.com/iamfartgod/iamfartgod.github.io/main/FartGodSamplePack/";
 
-    // ---------- Audio graph ----------
-    //   voice → padsDry ┐
-    //                   ├→ padsBus → filterHPF → filterLPF → destination
-    //   voice → revHPF → convolver → padsWet ┘
-    // The 100 Hz HPF in front of the convolver keeps the plate from
-    // muddying up low-end with reverberated thump.
+    // ---------- Audio graph (SEND model — reverb is parallel) ----------
+    //   voice → padsDry ────────────────────┐
+    //                                       ├→ padsBus → filterHPF → filterLPF → destination
+    //   voice → revSend → revHPF → conv ─→ padsWet ┘
+    //
+    // - padsDry stays at 1.0 always — dry signal is never crossfaded out.
+    // - revSend is the slider-controlled SEND level. At 0% no new audio
+    //   enters the reverb, but the convolver continues to ring out, so
+    //   you still hear the tail after closing the send. (Build-up feel.)
+    // - reverbHPF cutoff sweeps WITH the slider: high mix opens the lows
+    //   into the reverb, low mix only sends sparkly highs.
+    // - padsWet always passes the convolver's output through at full
+    //   level so the natural decay is audible regardless of send level.
     const AC = window.AudioContext || window.webkitAudioContext;
     const ctx = new AC();
 
@@ -521,16 +528,20 @@
     padsBus.gain.value = 0.9;
 
     const padsDry = ctx.createGain();
-    const padsWet = ctx.createGain();
-    padsDry.gain.value = 0.75;   // matches the 25% default mix
-    padsWet.gain.value = 0.25;
+    padsDry.gain.value = 1.0;   // always full dry
+
+    const revSend = ctx.createGain();
+    revSend.gain.value = 0.25;  // initial reverb send level (matches 25% knob)
 
     const reverbHPF = ctx.createBiquadFilter();
     reverbHPF.type = 'highpass';
-    reverbHPF.frequency.value = 100;
+    reverbHPF.frequency.value = 500; // initial cutoff (mid sweep position)
     reverbHPF.Q.value = 0.7;
 
     const convolver = ctx.createConvolver();
+
+    const padsWet = ctx.createGain();
+    padsWet.gain.value = 1.0;   // full wet output — tail always passes
 
     const filterHPF = ctx.createBiquadFilter();
     filterHPF.type = 'highpass';
@@ -542,6 +553,7 @@
     filterLPF.Q.value = 0.7;
 
     padsDry.connect(padsBus);
+    revSend.connect(reverbHPF);
     reverbHPF.connect(convolver);
     convolver.connect(padsWet);
     padsWet.connect(padsBus);
@@ -549,11 +561,11 @@
     filterHPF.connect(filterLPF);
     filterLPF.connect(ctx.destination);
 
-    // Synthesize a smooth plate IR (~2s decay, lightly damped)
+    // Smooth long plate IR (~3.5 s decay)
     function makePlateIR() {
         const sr = ctx.sampleRate;
-        const dur = 2.0;
-        const decay = 2.4;
+        const dur = 3.5;
+        const decay = 1.3;
         const bright = 0.85;
         const len = Math.floor(dur * sr);
         const buf = ctx.createBuffer(2, len, sr);
@@ -575,6 +587,15 @@
         return buf;
     }
     convolver.buffer = makePlateIR();
+
+    // Map the slider's 0..1 mix into a send level and HPF cutoff.
+    // - Send: linear (so the knob feels predictable)
+    // - HPF:  exponential sweep 1200 Hz → 50 Hz (opens up lows as mix rises)
+    function applyReverbMix(mix) {
+        revSend.gain.setTargetAtTime(mix, ctx.currentTime, 0.02);
+        const freq = 1200 * Math.pow(50 / 1200, mix);
+        reverbHPF.frequency.setTargetAtTime(freq, ctx.currentTime, 0.02);
+    }
 
     let globalPitch = 0;
     const env = { length: 5000 };   // ATTACK removed; LENGTH is the only env knob
@@ -648,7 +669,7 @@
     async function previewPad(i) {
         if (ctx.state === 'suspended') await ctx.resume();
         const buf = await loadSample(sampleFiles[i]);
-        scheduleVoice(ctx, padsDry, reverbHPF, buf, 0, 0, true);
+        scheduleVoice(ctx, padsDry, revSend, buf, 0, 0, true);
     }
 
     // ---------- Pads ----------
@@ -775,7 +796,7 @@
             if (semi !== null) {
                 loadSample(sampleFiles[i]).then(buf => {
                     const t = Math.max(when, ctx.currentTime);
-                    scheduleVoice(ctx, padsDry, reverbHPF, buf, semi, t, false);
+                    scheduleVoice(ctx, padsDry, revSend, buf, semi, t, false);
                 });
             }
         }
@@ -897,11 +918,12 @@
 
     document.getElementById('rev').addEventListener('input', e => {
         const mix = parseFloat(e.target.value);
-        padsDry.gain.value = 1 - mix;
-        padsWet.gain.value = mix;
+        applyReverbMix(mix);
         document.getElementById('rev-v').textContent = Math.round(mix * 100) + '%';
         markExportDirty();
     });
+    // Apply the initial mix so revSend + reverbHPF match the 25% default
+    applyReverbMix(0.25);
     document.getElementById('len').addEventListener('input', e => {
         env.length = parseInt(e.target.value);
         document.getElementById('len-v').textContent = env.length >= 5000 ? 'FULL' : env.length + ' MS';
@@ -971,10 +993,12 @@
         const off = new OfflineAudioContext(2, totalSamples, sr);
         const offBus = off.createGain();
         const offDry = off.createGain();
+        const offSend = off.createGain();
         const offWet = off.createGain();
-        offBus.gain.value = padsBus.gain.value;
-        offDry.gain.value = padsDry.gain.value;
-        offWet.gain.value = padsWet.gain.value;
+        offBus.gain.value  = padsBus.gain.value;
+        offDry.gain.value  = padsDry.gain.value;
+        offSend.gain.value = revSend.gain.value;
+        offWet.gain.value  = padsWet.gain.value;
         const offRevHPF = off.createBiquadFilter();
         offRevHPF.type = 'highpass';
         offRevHPF.frequency.value = reverbHPF.frequency.value;
@@ -987,6 +1011,7 @@
         offLPF.type = 'lowpass';
         offLPF.frequency.value = filterLPF.frequency.value;
         offDry.connect(offBus);
+        offSend.connect(offRevHPF);
         offRevHPF.connect(offConv);
         offConv.connect(offWet);
         offWet.connect(offBus);
@@ -1004,7 +1029,7 @@
                 if (semi !== null) {
                     const buf = bufMap.get(i);
                     if (!buf) continue;
-                    scheduleVoice(off, offDry, offRevHPF, buf, semi, when, false);
+                    scheduleVoice(off, offDry, offSend, buf, semi, when, false);
                 }
             }
         }
