@@ -1238,35 +1238,61 @@
     sampleFiles.forEach(loadSample);
 
     // ---------- Audio unlock (start gate) ----------
-    // Full sequence runs inside the start-btn click handler so it's
-    // guaranteed to be inside a user gesture. ctx.resume() alone isn't
-    // enough on iOS Safari — we also need to actually play a 1-sample
-    // silent buffer to convince WebKit that audio is live.
+    // iOS Safari requires the FIRST createBufferSource().start() to happen
+    // inside a real user gesture. We use a silent <audio> loop too — that
+    // bumps the page into iOS "media playback" mode, which keeps Web
+    // Audio alive after backgrounding and slips past the silent switch
+    // in some configurations.
     const startGate = document.getElementById('start-gate');
     const startBtn = document.getElementById('start-btn');
     let audioStarted = false;
+
+    // Minimal silent WAV (~46 bytes), looped — iOS routes the tab as
+    // active media playback once this is running.
+    const silentLoop = new Audio(
+        'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA='
+    );
+    silentLoop.loop = true;
+    silentLoop.preload = 'auto';
+
     async function startAudio() {
         if (audioStarted) return;
-        audioStarted = true;
         try {
+            // 1) resume the AudioContext synchronously within the gesture
             if (ctx.state === 'suspended') await ctx.resume();
-            const buf = ctx.createBuffer(1, 1, 22050);
-            const src = ctx.createBufferSource();
-            src.buffer = buf;
-            src.connect(ctx.destination);
-            src.start(0);
+            console.log('[beats] ctx.state after resume:', ctx.state);
+
+            // 2) play a 1-sample silent BufferSource — the canonical iOS unlock
+            const warm = ctx.createBuffer(1, 1, 22050);
+            const warmSrc = ctx.createBufferSource();
+            warmSrc.buffer = warm;
+            warmSrc.connect(ctx.destination);
+            warmSrc.start(0);
+
+            // 3) start the silent <audio> loop so the tab counts as media
+            try { await silentLoop.play(); } catch (_) { /* OK if blocked */ }
+
+            audioStarted = true;
             startGate.classList.add('gone');
-            // Re-kick preloads in case the early ones rejected before audio
-            // was alive (e.g. decodeAudioData on a suspended ctx in Safari).
+            // Re-kick preloads — earlier preloads may have rejected against
+            // a still-suspended ctx in Safari.
             sampleFiles.forEach(loadSample);
         } catch (e) {
-            audioStarted = false;
             console.error('[beats] audio start failed:', e);
-            alert('Could not start audio. Check that your phone is not in silent mode.');
+            alert('Could not start audio. On iPhone, flip the silent switch OFF and turn the volume up, then refresh.');
         }
     }
     startBtn.addEventListener('click', startAudio);
     startBtn.addEventListener('touchend', (e) => { e.preventDefault(); startAudio(); }, { passive: false });
+
+    // If the tab goes to the background (iOS aggressively suspends ctx),
+    // re-resume on return. Without this, switching apps and coming back
+    // can leave the sequencer running silently.
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && audioStarted && ctx.state === 'suspended') {
+            ctx.resume().catch(err => console.warn('[beats] resume on visibility failed:', err));
+        }
+    });
 
     // Escape returns to the full site
     window.addEventListener('keydown', (e) => {

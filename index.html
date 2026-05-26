@@ -560,6 +560,7 @@
         .pad.armed .pad-edit { color: var(--bg); border-color: var(--bg); }
         .pad.armed .pad-edit:hover { color: var(--bg); border-color: var(--bg); background: rgba(255,255,255,0.18); }
         .pad.has-trim .pad-edit { color: var(--accent-2); border-color: var(--accent-2); }
+        .pad.long-pressed { outline: 3px solid var(--accent-2); outline-offset: -3px; }
 
         /* Trim modal */
         .trim-modal {
@@ -1724,6 +1725,24 @@
             </div>
         </section>
 
+        <!-- Keyboard slot sits between the pack and the buy banner so
+             toggling SHOW KBD pushes the banner down instead of dropping
+             the kbd at the very end of the page. -->
+        <section class="kbd-wrap" id="kbd-wrap">
+            <div class="kbd-head">
+                <span>// KEYBOARD &nbsp;·&nbsp; <span id="armed-name">NO PAD ARMED</span></span>
+                <div class="oct-ctrl">
+                    <button id="oct-down" title="Octave Down (Z)">Z ↓</button>
+                    <span class="oct-val" id="oct-val">0</span>
+                    <button id="oct-up" title="Octave Up (X)">X ↑</button>
+                </div>
+                <span class="hint">A S D F G H J K L ; · BLACK: W E T Y U O P</span>
+            </div>
+            <div class="kbd-body">
+                <div class="keys" id="keys"></div>
+            </div>
+        </section>
+
         <aside class="buy buy-below">
             <div class="barcode">SKU // FG-027</div>
             <div>
@@ -1741,21 +1760,6 @@
                 <span class="arrow">→</span>
             </a>
         </aside>
-
-        <section class="kbd-wrap" id="kbd-wrap">
-            <div class="kbd-head">
-                <span>// KEYBOARD &nbsp;·&nbsp; <span id="armed-name">NO PAD ARMED</span></span>
-                <div class="oct-ctrl">
-                    <button id="oct-down" title="Octave Down (Z)">Z ↓</button>
-                    <span class="oct-val" id="oct-val">0</span>
-                    <button id="oct-up" title="Octave Up (X)">X ↑</button>
-                </div>
-                <span class="hint">A S D F G H J K L ; · BLACK: W E T Y U O P</span>
-            </div>
-            <div class="kbd-body">
-                <div class="keys" id="keys"></div>
-            </div>
-        </section>
 
         <div class="footer">
             <div>© <b>fartGOD</b> · ALL RIGHTS RESERVED · BUILT WITH <b>WEB AUDIO</b></div>
@@ -2028,16 +2032,48 @@
             `</button>` +
             `<div class="num">PAD ${String(i+1).padStart(2,'0')}</div>` +
             `<div class="name">FART ${i+1}</div>`;
+
+        // Long-press → open trim editor (mobile-friendly alternative to
+        // the tiny waveform icon, which is hard to tap on a phone).
+        let pressTimer = null;
+        let longPressFired = false;
+        const LONG_PRESS_MS = 450;
+        b.addEventListener('pointerdown', () => {
+            longPressFired = false;
+            pressTimer = setTimeout(() => {
+                pressTimer = null;
+                longPressFired = true;
+                b.classList.add('long-pressed');
+                openTrimModal(i);
+                setTimeout(() => b.classList.remove('long-pressed'), 200);
+            }, LONG_PRESS_MS);
+        });
+        const cancelPress = () => {
+            if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
+        };
+        b.addEventListener('pointerup',     cancelPress);
+        b.addEventListener('pointercancel', cancelPress);
+        b.addEventListener('pointerleave',  cancelPress);
+
         b.addEventListener('click', () => {
+            if (longPressFired) {
+                longPressFired = false;
+                return; // swallow the click that follows a long-press
+            }
             armPad(i);
             flashPad(b);
             if (mode === 'PADS') triggerSample(file, 0, i);
             if (mode === 'SEQ') renderSteps();
         });
-        // Trim icon: open the trim editor (doesn't bubble to the pad click)
+        // Trim icon click — desktop affordance; also stops bubbling so
+        // the pad's click handler doesn't double-fire.
         b.querySelector('.pad-edit').addEventListener('click', (e) => {
             e.stopPropagation();
             openTrimModal(i);
+        });
+        b.querySelector('.pad-edit').addEventListener('pointerdown', (e) => {
+            // Don't let the icon's pointerdown start a long-press timer
+            e.stopPropagation();
         });
         padsEl.appendChild(b);
     });
