@@ -314,10 +314,10 @@
         }
         .song-pick select:focus { outline: 2px solid var(--accent); outline-offset: -4px; }
 
-        /* Knob row — 3 sliders: REVERB / MUSIC VOL / PADS VOL */
+        /* Knob row — 2 sliders: MUSIC VOL / PADS VOL (reverb moved to GLOBAL FX) */
         .knob-row {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(2, 1fr);
             gap: 0;
             border: 2px solid var(--fg);
         }
@@ -755,13 +755,30 @@
         }
         .pack-head-actions button.mode-gran { background: #b06bff; color: var(--bg); }
 
+        /* Music video module */
+        .video { margin-top: 18px; }
+        .video-frame {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            background: #000;
+        }
+        .video-frame iframe {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+            display: block;
+        }
+
         /* Global FX strip */
         .gfx {
             margin-top: 18px;
             border: 2px solid var(--fg);
             background: var(--bg);
             display: grid;
-            grid-template-columns: auto repeat(4, 1fr);
+            grid-template-columns: auto repeat(5, 1fr);
             align-items: stretch;
         }
         .gfx .gfx-title {
@@ -1358,15 +1375,6 @@
 
                     <div class="knob-row">
                         <div class="knob">
-                            <div class="klbl"><span>// REVERB</span><b id="reverb-value">80%</b></div>
-                            <div class="rev-cycle">
-                                <button id="rev-prev" title="Previous reverb">◀</button>
-                                <span class="name" id="rev-style-name">ORIGINAL</span>
-                                <button id="rev-next" title="Next reverb">▶</button>
-                            </div>
-                            <input type="range" id="reverb-slider" min="0" max="1" step="0.01" value="0.8">
-                        </div>
-                        <div class="knob">
                             <div class="klbl"><span>// MUSIC VOL</span><b id="music-vol-value">80%</b></div>
                             <input type="range" id="music-vol-slider" min="0" max="1" step="0.01" value="0.8">
                         </div>
@@ -1397,11 +1405,36 @@
             </aside>
         </div>
 
+        <section class="module video">
+            <div class="module-head">
+                <span>// MUSIC VIDEO</span>
+                <span class="id">[ FARTGOD · OFFICIAL ]</span>
+            </div>
+            <div class="video-frame">
+                <iframe
+                    src="https://www.youtube.com/embed/kX-A_iEj7kI?rel=0&modestbranding=1"
+                    title="fartGOD music video"
+                    loading="lazy"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    referrerpolicy="strict-origin-when-cross-origin"
+                    allowfullscreen></iframe>
+            </div>
+        </section>
+
         <section class="gfx" aria-label="Global FX">
             <div class="gfx-title">// GLOBAL FX</div>
             <div class="gfx-knob">
                 <div class="klbl"><span>// DJ FILTER</span><b id="filter-v">OFF</b></div>
                 <div class="filter-track"><input type="range" id="filter-knob" min="-1" max="1" step="0.005" value="0"></div>
+            </div>
+            <div class="gfx-knob">
+                <div class="klbl"><span>// REVERB</span><b id="reverb-value">80%</b></div>
+                <div class="rev-cycle">
+                    <button id="rev-prev" title="Previous reverb">◀</button>
+                    <span class="name" id="rev-style-name">ORIGINAL</span>
+                    <button id="rev-next" title="Next reverb">▶</button>
+                </div>
+                <input type="range" id="reverb-slider" min="0" max="1" step="0.01" value="0.8">
             </div>
             <div class="gfx-knob">
                 <div class="klbl"><span>// ATTACK</span><b id="env-att-v">0 MS</b></div>
