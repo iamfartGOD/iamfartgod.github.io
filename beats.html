@@ -1037,6 +1037,13 @@
         return audioBufferToWav(rendered);
     }
 
+    // Touch-device check — on phones/tablets we skip the drag-to-DAW flow
+    // (which only works on Chrome/Edge desktop anyway) and use the Web
+    // Share API so users can send the file to Files / Ableton Note /
+    // Koala Sampler / Messages / iCloud Drive via the system share sheet.
+    const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints || 0) > 0;
+
+    let exportBlob = null;
     let exportBlobUrl = null;
     let renderToken = 0;
     let renderInFlight = false;
@@ -1051,8 +1058,10 @@
             exportBtn.textContent = 'RENDERING…';
         } else if (exportBlobUrl) {
             exportBtn.classList.remove('empty');
-            exportBtn.draggable = true;
-            exportBtn.textContent = 'DRAG WAV →';
+            // On touch devices the button is a normal tap-to-share; drag is
+            // disabled. On desktop it stays draggable for the DAW workflow.
+            exportBtn.draggable = !isTouchDevice;
+            exportBtn.textContent = isTouchDevice ? 'EXPORT' : 'DRAG WAV →';
         } else if (hasContent()) {
             exportBtn.classList.remove('empty');
             exportBtn.draggable = false;
@@ -1069,6 +1078,7 @@
         try {
             const blob = await renderToBlob();
             if (myToken !== renderToken) return;
+            exportBlob = blob;
             exportBlobUrl = blob ? URL.createObjectURL(blob) : null;
         } catch (e) {
             console.warn('Export render failed:', e);
@@ -1082,6 +1092,7 @@
         if (exportBlobUrl) {
             URL.revokeObjectURL(exportBlobUrl);
             exportBlobUrl = null;
+            exportBlob = null;
             updateExportButton();
         }
         setTimeout(() => {
@@ -1098,17 +1109,35 @@
         if (!exportBlobUrl && hasContent()) doRender(++renderToken);
     }, { passive: true });
     const exportFilename = () => `fartGOD-${bpm}bpm-${stepCount}step.wav`;
-    exportBtn.addEventListener('click', () => {
-        if (!exportBlobUrl) return;
+
+    exportBtn.addEventListener('click', async () => {
+        if (!exportBlobUrl || !exportBlob) return;
+        const filename = exportFilename();
+        const file = new File([exportBlob], filename, { type: 'audio/wav' });
+
+        // Mobile-first: open the OS share sheet so the user can route the
+        // file to Files / Ableton Note / Koala Sampler / etc.
+        if (isTouchDevice && navigator.canShare && navigator.canShare({ files: [file] })) {
+            try {
+                await navigator.share({ files: [file], title: filename });
+                return;
+            } catch (err) {
+                if (err && err.name === 'AbortError') return; // user dismissed
+                // Otherwise fall through to download
+            }
+        }
+        // Desktop / no-share fallback: regular download
         const a = document.createElement('a');
         a.href = exportBlobUrl;
-        a.download = exportFilename();
+        a.download = filename;
         document.body.appendChild(a);
         a.click();
         a.remove();
     });
+
+    // Drag-to-DAW — desktop only
     exportBtn.addEventListener('dragstart', (e) => {
-        if (!exportBlobUrl) { e.preventDefault(); return; }
+        if (isTouchDevice || !exportBlobUrl) { e.preventDefault(); return; }
         try {
             e.dataTransfer.effectAllowed = 'copyMove';
             e.dataTransfer.setData('DownloadURL', `audio/wav:${exportFilename()}:${exportBlobUrl}`);
