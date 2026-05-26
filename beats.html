@@ -406,9 +406,79 @@
         ::-webkit-scrollbar { height: 6px; width: 6px; }
         ::-webkit-scrollbar-track { background: var(--bg); }
         ::-webkit-scrollbar-thumb { background: var(--fg); }
+
+        /* Start gate — definitive iOS-safe audio unlock. The user has to
+           tap once before we let any audio code run, which guarantees we
+           perform ctx.resume() + a silent buffer inside a user gesture
+           (the only state where Safari will actually wake Web Audio). */
+        .start-gate {
+            position: fixed;
+            inset: 0;
+            background: var(--bg);
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 32px 20px;
+            gap: 14px;
+        }
+        .start-gate.gone { display: none; }
+        .start-gate h2 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 700;
+            font-size: clamp(40px, 12vw, 96px);
+            letter-spacing: -0.04em;
+            line-height: 0.9;
+            margin: 0;
+        }
+        .start-gate h2 .slash { color: var(--accent); }
+        .start-gate .sub {
+            color: var(--dim);
+            font-size: 12px;
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+            margin-bottom: 18px;
+        }
+        .start-gate .tap-btn {
+            background: var(--accent);
+            color: var(--bg);
+            border: 2px solid var(--accent);
+            padding: 18px 36px;
+            font-family: inherit;
+            font-size: 18px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.18em;
+            cursor: pointer;
+            min-width: 240px;
+            min-height: 56px;
+        }
+        .start-gate .tap-btn:active { background: var(--accent-2); border-color: var(--accent-2); }
+        .start-gate .note {
+            font-size: 11px;
+            line-height: 1.6;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: var(--dim);
+            max-width: 380px;
+            margin-top: 6px;
+        }
+        .start-gate .note b { color: var(--accent); }
     </style>
 </head>
 <body>
+    <div class="start-gate" id="start-gate">
+        <h2>FART<span class="slash">/</span>GOD</h2>
+        <div class="sub">// BEATS</div>
+        <button class="tap-btn" id="start-btn" type="button">TAP TO START</button>
+        <div class="note">
+            Turn volume up. iPhone users: flip the side <b>silent switch OFF</b>
+            — iOS won't play any web audio when your phone is muted.
+        </div>
+    </div>
+
     <div class="wrap">
         <div class="top">
             <div class="brand">FART<span class="slash">/</span>GOD <span style="color:var(--dim); font-weight:500;">// BEATS</span></div>
@@ -606,7 +676,19 @@
     const sampleCache = new Map();
     function loadSample(file) {
         if (sampleCache.has(file)) return sampleCache.get(file);
-        const p = fetch(baseURL + file).then(r => r.arrayBuffer()).then(d => ctx.decodeAudioData(d));
+        const p = fetch(baseURL + file)
+            .then(r => {
+                if (!r.ok) throw new Error('HTTP ' + r.status + ' loading ' + file);
+                return r.arrayBuffer();
+            })
+            .then(d => ctx.decodeAudioData(d))
+            .catch(err => {
+                console.warn('[beats] sample load failed:', file, err);
+                // Drop the cache slot so a future attempt can retry instead
+                // of getting handed the same rejected promise forever.
+                sampleCache.delete(file);
+                throw err;
+            });
         sampleCache.set(file, p);
         return p;
     }
@@ -667,9 +749,13 @@
     }
 
     async function previewPad(i) {
-        if (ctx.state === 'suspended') await ctx.resume();
-        const buf = await loadSample(sampleFiles[i]);
-        scheduleVoice(ctx, padsDry, revSend, buf, 0, 0, true);
+        try {
+            if (ctx.state === 'suspended') await ctx.resume();
+            const buf = await loadSample(sampleFiles[i]);
+            scheduleVoice(ctx, padsDry, revSend, buf, 0, 0, true);
+        } catch (e) {
+            console.warn('[beats] preview failed:', e);
+        }
     }
 
     // ---------- Pads ----------
@@ -1151,13 +1237,36 @@
     // Eagerly preload all samples so pad-tap previews are instant
     sampleFiles.forEach(loadSample);
 
-    const unlock = () => {
-        if (ctx.state === 'suspended') ctx.resume();
-        window.removeEventListener('touchstart', unlock);
-        window.removeEventListener('pointerdown', unlock);
-    };
-    window.addEventListener('touchstart', unlock, { passive: true });
-    window.addEventListener('pointerdown', unlock);
+    // ---------- Audio unlock (start gate) ----------
+    // Full sequence runs inside the start-btn click handler so it's
+    // guaranteed to be inside a user gesture. ctx.resume() alone isn't
+    // enough on iOS Safari — we also need to actually play a 1-sample
+    // silent buffer to convince WebKit that audio is live.
+    const startGate = document.getElementById('start-gate');
+    const startBtn = document.getElementById('start-btn');
+    let audioStarted = false;
+    async function startAudio() {
+        if (audioStarted) return;
+        audioStarted = true;
+        try {
+            if (ctx.state === 'suspended') await ctx.resume();
+            const buf = ctx.createBuffer(1, 1, 22050);
+            const src = ctx.createBufferSource();
+            src.buffer = buf;
+            src.connect(ctx.destination);
+            src.start(0);
+            startGate.classList.add('gone');
+            // Re-kick preloads in case the early ones rejected before audio
+            // was alive (e.g. decodeAudioData on a suspended ctx in Safari).
+            sampleFiles.forEach(loadSample);
+        } catch (e) {
+            audioStarted = false;
+            console.error('[beats] audio start failed:', e);
+            alert('Could not start audio. Check that your phone is not in silent mode.');
+        }
+    }
+    startBtn.addEventListener('click', startAudio);
+    startBtn.addEventListener('touchend', (e) => { e.preventDefault(); startAudio(); }, { passive: false });
 
     // Escape returns to the full site
     window.addEventListener('keydown', (e) => {
