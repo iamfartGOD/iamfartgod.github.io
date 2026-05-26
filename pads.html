@@ -29,6 +29,12 @@
         }
         .pad { touch-action: manipulation; }
 
+        /* No text highlighting on double-tap anywhere */
+        html, body, .pad {
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
         /* Visually hidden — for screen readers */
         .sr {
             position: absolute;

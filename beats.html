@@ -51,6 +51,19 @@
         /* Buttons / pads / steps: no double-tap-zoom, no gesture lag */
         button, .pad, .step { touch-action: manipulation; }
 
+        /* No text highlighting on double-tap anywhere — feels like an app, not a doc */
+        html, body, button, .pad, .step, .head, .klbl, .brand, .top, .foot, .editing {
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        /* …except actual text inputs */
+        input[type="number"] { -webkit-user-select: text; user-select: text; }
+
+        /* Bigger slider hit targets — easier to grab on touch screens */
+        input[type="range"] { height: 24px !important; }
+        input[type="range"]::-webkit-slider-thumb { width: 14px !important; height: 24px !important; }
+        input[type="range"]::-moz-range-thumb    { width: 14px !important; height: 24px !important; }
+
         .wrap { max-width: 960px; margin: 0 auto; padding: 10px; }
 
         /* Top bar */

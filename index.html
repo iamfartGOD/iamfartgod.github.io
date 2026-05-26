@@ -40,6 +40,21 @@
         input[type="range"] { touch-action: none; }
         button, .pad, .step, .wkey, .bkey { touch-action: manipulation; }
 
+        /* No text highlighting on double-tap — feels like an app */
+        html, body, button, .pad, .step, .head, .topbar, .footer,
+        .hero, .module-head, .knob .klbl, .gfx .klbl, .gran-knob .klbl,
+        .seq-editing, .pack-head-actions, .seq-transport, .stepper,
+        .buy, .cannon, .rev-cycle, .oct-ctrl, .kbd-head {
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        input[type="number"], select { -webkit-user-select: text; user-select: text; }
+
+        /* Bigger slider hit targets — easier to grab on touch screens */
+        input[type="range"] { height: 22px !important; }
+        input[type="range"]::-webkit-slider-thumb { width: 14px !important; height: 22px !important; }
+        input[type="range"]::-moz-range-thumb    { width: 14px !important; height: 22px !important; }
+
         body {
             min-height: 100vh;
             background-image:
