@@ -755,12 +755,16 @@
         }
         .pack-head-actions button.mode-gran { background: #b06bff; color: var(--bg); }
 
-        /* Music video module */
-        .video { margin-top: 18px; }
+        /* Music video module (sits in the grid, fills the column) */
+        .video {
+            display: flex;
+            flex-direction: column;
+        }
         .video-frame {
             position: relative;
             width: 100%;
-            aspect-ratio: 16 / 9;
+            flex: 1;
+            min-height: 280px;
             background: #000;
         }
         .video-frame iframe {
@@ -770,6 +774,40 @@
             height: 100%;
             border: none;
             display: block;
+        }
+        @media (max-width: 900px) {
+            .video-frame { aspect-ratio: 16 / 9; flex: none; }
+        }
+
+        /* Buy block (horizontal — sits below the pack module) */
+        .buy.buy-below {
+            margin-top: 18px;
+            flex-direction: row;
+            align-items: center;
+            min-height: 0;
+            gap: 28px;
+            padding: 20px 24px;
+        }
+        .buy.buy-below > div:not(.barcode) { flex: 1; }
+        .buy.buy-below h2 {
+            font-size: clamp(28px, 4vw, 44px);
+            line-height: 1;
+            margin-bottom: 8px;
+        }
+        .buy.buy-below .detail {
+            grid-template-columns: repeat(4, auto);
+            gap: 4px 18px;
+            margin-top: 8px;
+        }
+        .buy.buy-below .cta {
+            margin-top: 0;
+            min-width: 240px;
+            flex-shrink: 0;
+        }
+        @media (max-width: 720px) {
+            .buy.buy-below { flex-direction: column; align-items: stretch; gap: 14px; }
+            .buy.buy-below .detail { grid-template-columns: repeat(2, 1fr); }
+            .buy.buy-below .cta { min-width: 0; }
         }
 
         /* Global FX strip */
@@ -1316,15 +1354,8 @@
 
         <div class="topbar">
             <div><span class="live">SYS // ONLINE</span></div>
-            <div class="meta"><span id="clock">--:--:--</span> · v2.2 · fartGOD.audio</div>
+            <div class="meta"><span id="clock">--:--:--</span> · v2.3 · fartGOD.audio</div>
         </div>
-
-        <a class="cannon" href="pads.html" title="Open full-screen pad mode">
-            <span class="cannon-lbl">// LAUNCH</span>
-            <span class="cannon-name">FART CANNON</span>
-            <span class="cannon-sub">BIG PADS · ONE TAP · NO MENUS</span>
-            <span class="cannon-arrow">→</span>
-        </a>
 
         <header class="hero">
             <h1>FART<span class="slash">/</span>GOD</h1>
@@ -1333,6 +1364,13 @@
                 <div>SUPPORT A FARTIST ↓</div>
             </div>
         </header>
+
+        <a class="cannon" href="pads.html" title="Open full-screen pad mode">
+            <span class="cannon-lbl">// LAUNCH</span>
+            <span class="cannon-name">FART CANNON</span>
+            <span class="cannon-sub">BIG PADS · ONE TAP · NO MENUS</span>
+            <span class="cannon-arrow">→</span>
+        </a>
 
         <div class="grid">
 
@@ -1386,40 +1424,22 @@
                 </div>
             </section>
 
-            <aside class="buy">
-                <div class="barcode">SKU // FG-027</div>
-                <div>
-                    <div style="font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; opacity: 0.85;">// PRODUCT</div>
-                    <h2>fartGOD<br>SAMPLE<br>PACK</h2>
-                    <div class="detail">
-                        <div><span>FORMAT</span><b>27 × WAV</b></div>
-                        <div><span>BPM</span><b>FREE</b></div>
-                        <div><span>LICENSE</span><b>ROYALTY-FREE</b></div>
-                        <div><span>HOSTED</span><b>GUMROAD</b></div>
-                    </div>
+            <section class="module video">
+                <div class="module-head">
+                    <span>// MUSIC VIDEO</span>
+                    <span class="id">[ FARTGOD · OFFICIAL ]</span>
                 </div>
-                <a class="cta" href="https://fartgod.gumroad.com/l/fartGODSamplePack" target="_blank" rel="noopener">
-                    <span>SUPPORT A FARTIST</span>
-                    <span class="arrow">→</span>
-                </a>
-            </aside>
+                <div class="video-frame">
+                    <iframe
+                        src="https://www.youtube.com/embed/kX-A_iEj7kI?rel=0&modestbranding=1"
+                        title="fartGOD music video"
+                        loading="lazy"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        referrerpolicy="strict-origin-when-cross-origin"
+                        allowfullscreen></iframe>
+                </div>
+            </section>
         </div>
-
-        <section class="module video">
-            <div class="module-head">
-                <span>// MUSIC VIDEO</span>
-                <span class="id">[ FARTGOD · OFFICIAL ]</span>
-            </div>
-            <div class="video-frame">
-                <iframe
-                    src="https://www.youtube.com/embed/kX-A_iEj7kI?rel=0&modestbranding=1"
-                    title="fartGOD music video"
-                    loading="lazy"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                    referrerpolicy="strict-origin-when-cross-origin"
-                    allowfullscreen></iframe>
-            </div>
-        </section>
 
         <section class="gfx" aria-label="Global FX">
             <div class="gfx-title">// GLOBAL FX</div>
@@ -1428,13 +1448,8 @@
                 <div class="filter-track"><input type="range" id="filter-knob" min="-1" max="1" step="0.005" value="0"></div>
             </div>
             <div class="gfx-knob">
-                <div class="klbl"><span>// REVERB</span><b id="reverb-value">80%</b></div>
-                <div class="rev-cycle">
-                    <button id="rev-prev" title="Previous reverb">◀</button>
-                    <span class="name" id="rev-style-name">ORIGINAL</span>
-                    <button id="rev-next" title="Next reverb">▶</button>
-                </div>
-                <input type="range" id="reverb-slider" min="0" max="1" step="0.01" value="0.8">
+                <div class="klbl"><span>// REVERB</span><b id="reverb-value">0%</b></div>
+                <input type="range" id="reverb-slider" min="0" max="1" step="0.01" value="0">
             </div>
             <div class="gfx-knob">
                 <div class="klbl"><span>// ATTACK</span><b id="env-att-v">0 MS</b></div>
@@ -1542,6 +1557,23 @@
             </div>
         </section>
 
+        <aside class="buy buy-below">
+            <div class="barcode">SKU // FG-027</div>
+            <div>
+                <div style="font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; opacity: 0.85;">// PRODUCT</div>
+                <h2>fartGOD<br>SAMPLE<br>PACK</h2>
+                <div class="detail">
+                    <div><span>FORMAT</span><b>27 × WAV</b></div>
+                    <div><span>BPM</span><b>FREE</b></div>
+                    <div><span>LICENSE</span><b>ROYALTY-FREE</b></div>
+                    <div><span>HOSTED</span><b>GUMROAD</b></div>
+                </div>
+            </div>
+            <a class="cta" href="https://fartgod.gumroad.com/l/fartGODSamplePack" target="_blank" rel="noopener">
+                <span>SUPPORT A FARTIST</span>
+                <span class="arrow">→</span>
+            </a>
+        </aside>
 
         <section class="kbd-wrap" id="kbd-wrap">
             <div class="kbd-head">
@@ -1582,14 +1614,31 @@
     const AC = window.AudioContext || window.webkitAudioContext;
     const ctx = new AC();
 
-    // Pads bus (samples) → DJ filter (HPF→LPF) → out
+    // Audio chain (SEND model for reverb):
+    //   voice → padsDry ───────────────────────────────┐
+    //                                                  ├→ padsBus → DJ filter → out
+    //   voice → revSend → revHPF(200) → conv → padsWet ┘
+    // - padsDry stays at 1.0 always.
+    // - revSend = reverb slider position. At 0 no new audio enters the
+    //   reverb, but the convolver still rings out its existing tail.
+    // - padsWet stays at 1.0 so the tail always passes through.
+    // - The IR is a long (~4 s) plate so higher mix sounds longer.
+    // - Fixed 200 Hz HPF in front of the convolver keeps lows out so the
+    //   reverb doesn't get muddy.
     const padsBus  = ctx.createGain();
     const padsDry  = ctx.createGain();
     const padsWet  = ctx.createGain();
+    const revSend  = ctx.createGain();
     const convolver = ctx.createConvolver();
-    padsBus.gain.value  = 0.9;
-    padsDry.gain.value  = 0.2;
-    padsWet.gain.value  = 0.8;
+    padsBus.gain.value = 0.9;
+    padsDry.gain.value = 1.0;
+    padsWet.gain.value = 1.0;
+    revSend.gain.value = 0;        // reverb default off (matches 0% slider)
+
+    const reverbHPF = ctx.createBiquadFilter();
+    reverbHPF.type = 'highpass';
+    reverbHPF.frequency.value = 200;
+    reverbHPF.Q.value = 0.7;
 
     const filterHPF = ctx.createBiquadFilter();
     filterHPF.type = 'highpass';
@@ -1601,6 +1650,8 @@
     filterLPF.Q.value = 0.7;
 
     padsDry.connect(padsBus);
+    revSend.connect(reverbHPF);
+    reverbHPF.connect(convolver);
     convolver.connect(padsWet);
     padsWet.connect(padsBus);
     padsBus.connect(filterHPF);
@@ -1620,67 +1671,31 @@
     musicGain.connect(analyser);
     analyser.connect(ctx.destination);
 
-    // ---------- Reverb presets ----------
-    // Synthesize IRs as exponentially decaying noise with simple lowpass for darkness
-    function makeIR(durationSec, decayRate, brightness) {
+    // ---------- Reverb (single Medium Plate, fixed IR) ----------
+    function makePlateIR(durationSec, decayRate, brightness) {
         const sr = ctx.sampleRate;
         const len = Math.max(1, Math.floor(durationSec * sr));
         const buf = ctx.createBuffer(2, len, sr);
         for (let ch = 0; ch < 2; ch++) {
             const data = buf.getChannelData(ch);
-            // Tiny pre-delay variation per channel for stereo width
             const pre = ch * Math.floor(sr * 0.003);
             for (let i = 0; i < len; i++) {
                 const t = i / sr;
-                const env = Math.exp(-decayRate * t);
+                const envv = Math.exp(-decayRate * t);
                 const idx = i + (ch === 1 ? -pre : pre);
-                data[i] = (Math.random() * 2 - 1) * env * (idx >= 0 ? 1 : 0);
+                data[i] = (Math.random() * 2 - 1) * envv * (idx >= 0 ? 1 : 0);
             }
-            if (brightness < 1) {
-                let prev = 0;
-                const alpha = Math.max(0.02, brightness);
-                for (let i = 0; i < len; i++) {
-                    prev = prev + alpha * (data[i] - prev);
-                    data[i] = prev;
-                }
+            let prev = 0;
+            const alpha = Math.max(0.02, brightness);
+            for (let i = 0; i < len; i++) {
+                prev = prev + alpha * (data[i] - prev);
+                data[i] = prev;
             }
         }
         return buf;
     }
-
-    const reverbPresets = {
-        'BATHROOM':     { dur: 0.45, decay: 9.5, bright: 1.0 },
-        'SMALL ROOM':   { dur: 0.9,  decay: 5.0, bright: 0.65 },
-        'MEDIUM PLATE': { dur: 2.0,  decay: 2.4, bright: 0.85 },
-        'HALL':         { dur: 3.6,  decay: 1.3, bright: 0.45 },
-        'CAVE':         { dur: 5.5,  decay: 0.7, bright: 0.18 },
-    };
-
-    const reverbStyleList = ['BATHROOM', 'SMALL ROOM', 'MEDIUM PLATE', 'HALL', 'CAVE', 'ORIGINAL'];
-    let reverbIdx = 5; // ORIGINAL (default)
-    function setReverbStyle(name) {
-        if (name === 'ORIGINAL') {
-            fetch(reverbURL)
-                .then(r => r.arrayBuffer())
-                .then(d => ctx.decodeAudioData(d))
-                .then(buf => { convolver.buffer = buf; markExportDirty(); })
-                .catch(e => console.warn('IR load failed', e));
-        } else {
-            const p = reverbPresets[name] || reverbPresets['MEDIUM PLATE'];
-            convolver.buffer = makeIR(p.dur, p.decay, p.bright);
-        }
-        reverbIdx = reverbStyleList.indexOf(name);
-        const nameEl = document.getElementById('rev-style-name');
-        if (nameEl) nameEl.textContent = name;
-        markExportDirty();
-    }
-    function cycleReverb(dir) {
-        reverbIdx = (reverbIdx + dir + reverbStyleList.length) % reverbStyleList.length;
-        setReverbStyle(reverbStyleList[reverbIdx]);
-    }
-    document.getElementById('rev-prev').addEventListener('click', () => cycleReverb(-1));
-    document.getElementById('rev-next').addEventListener('click', () => cycleReverb(+1));
-    // Default: medium plate (synth) — will be set on boot below
+    // ~4 s tail so higher mix has more time to bloom
+    convolver.buffer = makePlateIR(4.0, 1.0, 0.85);
 
     // Sample cache
     const sampleCache = new Map();
@@ -1754,7 +1769,10 @@
     }
 
     function playBufferAt(buffer, semitones, when, mono) {
-        return scheduleVoice(ctx, padsDry, convolver, buffer, semitones, when, !!mono);
+        // Wet send goes through revSend → reverbHPF → convolver (not into the
+        // convolver directly), so the reverb slider only changes how much
+        // new audio reaches the plate while the existing tail still rings out.
+        return scheduleVoice(ctx, padsDry, revSend, buffer, semitones, when, !!mono);
     }
 
     async function triggerSample(file, semitones = 0) {
@@ -2257,7 +2275,7 @@
         }
         src.connect(g);
         last.connect(padsDry);
-        last.connect(convolver);
+        last.connect(revSend);
 
         src.start(when, offset);
         src.stop(when + size + 0.05);
@@ -2430,12 +2448,15 @@
     });
 
     // ---------- Reverb + separate volumes ----------
+    // SEND-model knob: slider only modulates the wet send level. padsDry +
+    // padsWet stay at 1.0 so the convolver tail rings out naturally when the
+    // slider is closed (no new audio enters, but the plate's stored history
+    // continues to decay through padsWet).
     const reverbSlider = document.getElementById('reverb-slider');
     const reverbVal = document.getElementById('reverb-value');
     reverbSlider.addEventListener('input', e => {
         const mix = parseFloat(e.target.value);
-        padsDry.gain.value = 1 - mix;
-        padsWet.gain.value = mix;
+        revSend.gain.setTargetAtTime(mix, ctx.currentTime, 0.02);
         reverbVal.textContent = Math.round(mix * 100) + '%';
         markExportDirty();
     });
@@ -2549,14 +2570,21 @@
         const totalSamples = Math.ceil(patternDur * sr);
         const off = new OfflineAudioContext(2, totalSamples, sr);
 
-        const offBus = off.createGain();
-        const offDry = off.createGain();
-        const offWet = off.createGain();
+        const offBus  = off.createGain();
+        const offDry  = off.createGain();
+        const offWet  = off.createGain();
+        const offSend = off.createGain();
         const offConv = off.createConvolver();
-        offBus.gain.value = padsBus.gain.value;
-        offDry.gain.value = padsDry.gain.value;
-        offWet.gain.value = padsWet.gain.value;
+        offBus.gain.value  = padsBus.gain.value;
+        offDry.gain.value  = padsDry.gain.value;
+        offWet.gain.value  = padsWet.gain.value;
+        offSend.gain.value = revSend.gain.value;
         if (convolver.buffer) offConv.buffer = convolver.buffer;
+
+        const offRevHPF = off.createBiquadFilter();
+        offRevHPF.type = 'highpass';
+        offRevHPF.frequency.value = reverbHPF.frequency.value;
+        offRevHPF.Q.value = reverbHPF.Q.value;
 
         const offHPF = off.createBiquadFilter();
         offHPF.type = 'highpass'; offHPF.frequency.value = filterHPF.frequency.value; offHPF.Q.value = filterHPF.Q.value;
@@ -2564,6 +2592,8 @@
         offLPF.type = 'lowpass';  offLPF.frequency.value = filterLPF.frequency.value; offLPF.Q.value = filterLPF.Q.value;
 
         offDry.connect(offBus);
+        offSend.connect(offRevHPF);
+        offRevHPF.connect(offConv);
         offConv.connect(offWet);
         offWet.connect(offBus);
         offBus.connect(offHPF);
@@ -2586,7 +2616,7 @@
                 if (semi !== null) {
                     const buf = bufMap.get(i);
                     if (!buf) continue;
-                    scheduleVoice(off, offDry, offConv, buf, semi, when, false);
+                    scheduleVoice(off, offDry, offSend, buf, semi, when, false);
                 }
             }
         }
@@ -2760,7 +2790,6 @@
     loadSong(0);
     setOctave(0);
     renderSteps();
-    setReverbStyle('ORIGINAL');
     setMode('PADS');
     // Arm PAD 01 by default so typing the QWERTY-piano works right away
     // without needing a click to select a pad first.
