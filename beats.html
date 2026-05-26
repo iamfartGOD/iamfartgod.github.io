@@ -90,45 +90,97 @@
         .head .editing { color: var(--accent); }
         .head .step-counter { color: var(--accent); }
 
-        /* Transport — single row, BPM/STEPS pushed right */
-        .transport-bar {
+        /* Top-bar EXPORT button */
+        .top-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .top-actions button.export {
+            background: var(--accent-2);
+            color: var(--bg);
+            border: 2px solid var(--accent-2);
+            padding: 6px 14px;
+            font-family: inherit;
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.16em;
+            cursor: grab;
+            min-width: 110px;
+        }
+        .top-actions button.export:hover { background: var(--accent); border-color: var(--accent); }
+        .top-actions button.export:active { cursor: grabbing; }
+        .top-actions button.export.empty {
+            background: var(--mute);
+            color: var(--dim);
+            border-color: var(--mute);
+            cursor: not-allowed;
+        }
+
+        /* Transport rows */
+        .row-bar {
             display: flex;
             align-items: stretch;
-            flex-wrap: wrap;
         }
-        .transport-bar .group {
-            display: flex;
-            border-right: 2px solid var(--fg);
-        }
-        .transport-bar .group.spacer-right { margin-left: auto; border-right: none; }
-        .transport-bar button {
+        .row-bar > button {
+            flex: 1;
             background: var(--bg);
             color: var(--fg);
             border: none;
             border-right: 2px solid var(--fg);
-            padding: 12px 12px;
+            padding: 14px 10px;
             font-family: inherit;
-            font-size: 12px;
+            font-size: 13px;
             font-weight: 800;
             text-transform: uppercase;
-            letter-spacing: 0.12em;
+            letter-spacing: 0.14em;
             cursor: pointer;
-            min-width: 48px;
-            min-height: 46px;
+            min-height: 50px;
         }
-        .transport-bar button:last-child { border-right: none; }
-        .transport-bar button:hover { background: var(--fg); color: var(--bg); }
-        .transport-bar button.play.on  { background: var(--accent); color: var(--bg); }
-        .transport-bar button.rec.on   { background: var(--danger); color: var(--fg); animation: pulse 1s ease-in-out infinite; }
-        .transport-bar button.metro.on { background: var(--accent-2); color: var(--bg); }
-        .transport-bar button.export { background: var(--accent-2); color: var(--bg); cursor: grab; }
-        .transport-bar button.export:hover { background: var(--accent); color: var(--bg); }
-        .transport-bar button.export:active { cursor: grabbing; }
-        .transport-bar button.export.empty { background: var(--mute); color: var(--dim); cursor: not-allowed; }
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.55; }
+        .row-bar > button:last-child { border-right: none; }
+        .row-bar > button:hover { background: var(--fg); color: var(--bg); }
+        .row-bar button.play.on   { background: var(--accent);   color: var(--bg); }
+        .row-bar button.rec.on    { background: var(--danger);   color: var(--fg); animation: pulse 1s ease-in-out infinite; }
+        .row-bar button.metro.on  { background: var(--accent-2); color: var(--bg); }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+
+        .tempo-row { border-top: 2px solid var(--fg); }
+        .tempo-row .stepper { flex: 1; }
+        .tempo-row > .dup-btn {
+            flex: 0 0 auto;
+            min-width: 70px;
+            background: var(--bg);
+            color: var(--fg);
+            border: none;
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: 800;
+            cursor: pointer;
         }
+        .tempo-row > .dup-btn:hover { background: var(--accent-2); color: var(--bg); }
+
+        /* CLR/CLR ALL in the pads head */
+        .head-actions {
+            display: flex;
+            align-items: stretch;
+            border: 2px solid var(--bg);
+        }
+        .head-actions button {
+            background: var(--bg);
+            color: var(--fg);
+            border: none;
+            border-left: 2px solid var(--bg);
+            padding: 4px 12px;
+            font-family: inherit;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.18em;
+            cursor: pointer;
+        }
+        .head-actions button:first-child { border-left: none; }
+        .head-actions button:hover { background: var(--danger); color: var(--fg); }
 
         .stepper {
             display: flex;
@@ -136,7 +188,6 @@
             border-right: 2px solid var(--fg);
         }
         .stepper:last-child { border-right: none; }
-        .stepper.bpm-stepper { margin-left: auto; }
         .stepper .slbl {
             background: var(--fg);
             color: var(--bg);
@@ -340,25 +391,22 @@
     <div class="wrap">
         <div class="top">
             <div class="brand">FART<span class="slash">/</span>GOD <span style="color:var(--dim); font-weight:500;">// BEATS</span></div>
-            <a href="index.html" title="Back to full site">← FULL SITE</a>
+            <div class="top-actions">
+                <button id="export" class="export empty" title="Click to download · Hold + drag to DAW">EXPORT</button>
+                <a href="index.html" title="Back to full site">← FULL SITE</a>
+            </div>
         </div>
 
-        <!-- TRANSPORT — single row, BPM/STEPS pushed right -->
+        <!-- TRANSPORT — playback row + tempo row -->
         <section class="module">
             <div class="head"><span>// TRANSPORT</span></div>
-            <div class="transport-bar">
-                <div class="group">
-                    <button id="play" class="play" title="Play / Stop">▶</button>
-                    <button id="rec" class="rec" title="Record-arm — taps and keys write into the running sequence">● REC</button>
-                    <button id="metro" class="metro" title="Metronome click on every downbeat">MET</button>
-                </div>
-                <div class="group">
-                    <button id="clr" title="Clear this pad's row">CLR</button>
-                    <button id="clr-all" title="Clear ALL sequences">CLR ALL</button>
-                    <button id="dup" title="Double the pattern length, duplicate steps">× 2</button>
-                    <button id="export" class="export empty" title="Click to download · Hold + drag to DAW">EXPORT</button>
-                </div>
-                <div class="stepper bpm-stepper">
+            <div class="row-bar">
+                <button id="play"  class="play"  title="Play / Stop">▶</button>
+                <button id="rec"   class="rec"   title="Record-arm — taps and keys write into the running sequence">● REC</button>
+                <button id="metro" class="metro" title="Metronome click on every downbeat">MET</button>
+            </div>
+            <div class="row-bar tempo-row">
+                <div class="stepper">
                     <span class="slbl">BPM</span>
                     <button id="bpm-minus">−</button>
                     <input type="number" id="bpm" min="40" max="240" value="120">
@@ -370,14 +418,18 @@
                     <input type="number" id="step-count" min="4" max="32" value="16">
                     <button id="steps-plus">+</button>
                 </div>
+                <button id="dup" class="dup-btn" title="Double the pattern length, duplicate steps">× 2</button>
             </div>
         </section>
 
         <!-- PADS — pick a sound -->
         <section class="module">
             <div class="head">
-                <span>// PADS · TAP TO PICK + PREVIEW</span>
-                <span class="editing" id="editing-label">EDITING PAD 01</span>
+                <span>// PADS · <span class="editing" id="editing-label">EDITING PAD 01</span></span>
+                <div class="head-actions">
+                    <button id="clr" title="Clear this pad's row">CLR</button>
+                    <button id="clr-all" title="Clear ALL sequences">CLR ALL</button>
+                </div>
             </div>
             <div class="pads" id="pads"></div>
         </section>
