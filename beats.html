@@ -604,6 +604,58 @@
         .trim-pitch-btn:last-child { border-right: none; }
         .trim-pitch-btn:hover { background: var(--accent-2); color: var(--bg); }
         .trim-pitch-btn:active { background: var(--accent); color: var(--bg); }
+
+        /* Per-pad parameter knobs (FILTER / REV SEND) below the time row */
+        .trim-knobs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            border-top: 2px solid var(--fg);
+            border-bottom: 2px solid var(--fg);
+        }
+        .trim-knob {
+            padding: 10px 14px;
+            border-right: 1px solid var(--fg);
+        }
+        .trim-knob:last-child { border-right: none; }
+        .trim-knob .klbl {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 0.18em;
+            color: var(--dim);
+            margin-bottom: 8px;
+        }
+        .trim-knob .klbl b { color: var(--fg); font-weight: 700; font-size: 12px; letter-spacing: 0; }
+        .trim-knob input[type="range"] {
+            width: 100%;
+            height: 22px !important;
+            -webkit-appearance: none;
+            appearance: none;
+            background: var(--mute);
+            outline: none;
+            cursor: pointer;
+            border: none;
+            touch-action: none;
+        }
+        .trim-knob input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px !important;
+            height: 22px !important;
+            background: var(--accent-2);
+            cursor: pointer;
+            border: none;
+        }
+        .trim-knob input[type="range"]::-moz-range-thumb {
+            width: 14px !important;
+            height: 22px !important;
+            background: var(--accent-2);
+            cursor: pointer;
+            border: none;
+            border-radius: 0;
+        }
         @media (max-width: 520px) {
             .trim-controls { gap: 8px; padding: 10px; font-size: 10px; }
             .trim-controls button { padding: 8px 10px; font-size: 10px; min-width: 0; }
@@ -780,11 +832,11 @@
         </div>
     </div>
 
-    <!-- Trim modal — opened by long-pressing a pad (450ms) -->
+    <!-- Per-pad track editor (Digitakt-style) — long-press any pad (450ms) -->
     <div class="trim-modal" id="trim-modal" role="dialog" aria-modal="true">
         <div class="trim-content">
             <div class="trim-head">
-                <span>// TRIM · <b id="trim-pad-label">PAD 01</b></span>
+                <span>// EDIT · <b id="trim-pad-label">PAD 01</b></span>
                 <button id="trim-close" title="Close">DONE</button>
             </div>
             <div class="trim-wave-wrap">
@@ -803,6 +855,18 @@
                     <button class="trim-pitch-btn" data-step="1"   title="Semitone up">+1</button>
                     <button class="trim-pitch-btn" data-step="12"  title="Octave up">+12</button>
                 </div>
+            </div>
+            <div class="trim-knobs">
+                <div class="trim-knob">
+                    <div class="klbl"><span>// FILTER</span><b id="trim-filter-v">OFF</b></div>
+                    <div class="filter-track"><input type="range" id="trim-filter" min="-1" max="1" step="0.01" value="0"></div>
+                </div>
+                <div class="trim-knob">
+                    <div class="klbl"><span>// REV SEND</span><b id="trim-revsend-v">100%</b></div>
+                    <input type="range" id="trim-revsend" min="0" max="2" step="0.01" value="1">
+                </div>
+            </div>
+            <div class="trim-controls">
                 <button id="trim-preview">▶ PREVIEW</button>
                 <button id="trim-reset">RESET</button>
             </div>
@@ -913,10 +977,12 @@
 
     // ---------- Sample cache + scheduling ----------
     const sampleFiles = Array.from({length: 27}, (_, i) => `Fart${i+1}.wav`);
-    // Per-pad trim — { start: 0..1, end: 0..1 } normalized to buffer.duration
-    const padTrim = sampleFiles.map(() => ({ start: 0, end: 1 }));
-    // Per-pad pitch offset in semitones (set from the trim modal's ± buttons)
-    const padPitch = sampleFiles.map(() => 0);
+    // Per-pad track parameters (Digitakt-style — each pad has its own
+    // independent track). All set from the long-press pad editor.
+    const padTrim       = sampleFiles.map(() => ({ start: 0, end: 1 }));
+    const padPitch      = sampleFiles.map(() => 0);    // semitones (±24)
+    const padFilter     = sampleFiles.map(() => 0);    // -1..+1 (DJ-style, 0 = off)
+    const padReverbSend = sampleFiles.map(() => 1);    // 0..2 (default 1 = full send)
     const sampleCache = new Map();
     function loadSample(file) {
         if (sampleCache.has(file)) return sampleCache.get(file);
@@ -959,16 +1025,23 @@
     // global PITCH every time — so the LENGTH knob shortens pad-clicks too.
     // Takes both the dry node and the reverb-HPF input so the same function
     // works for the live ctx and the offline render context.
+    // Map a -1..+1 DJ-filter value to a HPF / LPF cutoff pair.
+    function djFreqs(v) {
+        if (Math.abs(v) < 0.02) return { hpf: 20, lpf: 20000 };
+        if (v < 0) return { hpf: 20, lpf: 200 * Math.pow(100, v + 1) };
+        return { hpf: 20 * Math.pow(250, v), lpf: 20000 };
+    }
+
     function scheduleVoice(audioCtx, dryNode, revNode, buffer, semitones, when, mono, padIndex) {
         const start = when || audioCtx.currentTime;
         const src = audioCtx.createBufferSource();
         src.buffer = buffer;
-        const padSemi = (padIndex !== undefined && padIndex !== null) ? (padPitch[padIndex] || 0) : 0;
+        const hasPad = padIndex !== undefined && padIndex !== null;
+        const padSemi = hasPad ? (padPitch[padIndex] || 0) : 0;
         const rate = Math.pow(2, (semitones + globalPitch + padSemi) / 12);
         src.playbackRate.value = rate;
 
-        // Apply per-pad start/end trim to the BufferSource offset + duration.
-        const trim = (padIndex !== undefined && padIndex !== null) ? padTrim[padIndex] : { start: 0, end: 1 };
+        const trim = hasPad ? padTrim[padIndex] : { start: 0, end: 1 };
         const offsetSec   = trim.start * buffer.duration;
         const trimmedRange = Math.max(0.005, (trim.end - trim.start) * buffer.duration);
         const naturalDur  = trimmedRange / rate;
@@ -986,8 +1059,33 @@
         g.gain.exponentialRampToValueAtTime(1.0, aEnd);
         g.gain.setValueAtTime(1.0, rStart);
         g.gain.exponentialRampToValueAtTime(0.0001, stopAt);
-        g.connect(dryNode);
-        g.connect(revNode);
+
+        // Per-pad filter (ephemeral chain only when non-zero so passive pads
+        // don't pay the cost of two extra nodes).
+        let chainEnd = g;
+        const padFv = hasPad ? padFilter[padIndex] : 0;
+        if (Math.abs(padFv) > 0.02) {
+            const { hpf, lpf } = djFreqs(padFv);
+            const fHi = audioCtx.createBiquadFilter();
+            fHi.type = 'highpass'; fHi.frequency.value = hpf; fHi.Q.value = 0.7;
+            const fLo = audioCtx.createBiquadFilter();
+            fLo.type = 'lowpass';  fLo.frequency.value = lpf; fLo.Q.value = 0.7;
+            chainEnd.connect(fHi);
+            fHi.connect(fLo);
+            chainEnd = fLo;
+        }
+        chainEnd.connect(dryNode);
+
+        // Per-pad reverb send — scales how much of this voice reaches the
+        // master reverb chain. 0 = no reverb on this pad, 1 = full.
+        const sendVal = hasPad ? padReverbSend[padIndex] : 1;
+        if (sendVal > 0) {
+            const sendGain = audioCtx.createGain();
+            sendGain.gain.value = sendVal;
+            chainEnd.connect(sendGain);
+            sendGain.connect(revNode);
+        }
+
         src.start(start, offsetSec);
         src.stop(stopAt + 0.05);
 
@@ -1625,11 +1723,28 @@
         const p = padPitch[trimPadIndex] || 0;
         document.getElementById('trim-pitch-v').textContent =
             (p > 0 ? '+' : '') + p + ' ST';
+        // Filter + reverb-send knobs
+        const fv = padFilter[trimPadIndex] || 0;
+        document.getElementById('trim-filter').value = fv;
+        const filterText = (() => {
+            if (Math.abs(fv) < 0.02) return 'OFF';
+            if (fv < 0) {
+                const c = 200 * Math.pow(100, fv + 1);
+                return 'LP ' + (c < 1000 ? Math.round(c) + 'HZ' : (c/1000).toFixed(1) + 'K');
+            }
+            const c = 20 * Math.pow(250, fv);
+            return 'HP ' + (c < 1000 ? Math.round(c) + 'HZ' : (c/1000).toFixed(1) + 'K');
+        })();
+        document.getElementById('trim-filter-v').textContent = filterText;
+        const rs = padReverbSend[trimPadIndex];
+        document.getElementById('trim-revsend').value = rs;
+        document.getElementById('trim-revsend-v').textContent = Math.round(rs * 100) + '%';
         drawTrimWaveform();
         const padEl = padsEl.children[trimPadIndex];
         if (padEl) {
             const trimDefault = t.start <= 0.001 && t.end >= 0.999;
-            padEl.classList.toggle('has-trim', !(trimDefault && p === 0));
+            const allDefault  = trimDefault && p === 0 && Math.abs(fv) < 0.02 && rs === 1;
+            padEl.classList.toggle('has-trim', !allDefault);
         }
     }
 
@@ -1655,8 +1770,30 @@
     });
     document.getElementById('trim-reset').addEventListener('click', () => {
         if (trimPadIndex === null) return;
-        padTrim[trimPadIndex] = { start: 0, end: 1 };
-        padPitch[trimPadIndex] = 0;
+        padTrim[trimPadIndex]       = { start: 0, end: 1 };
+        padPitch[trimPadIndex]      = 0;
+        padFilter[trimPadIndex]     = 0;
+        padReverbSend[trimPadIndex] = 1;
+        updateTrimUI();
+        markExportDirty();
+    });
+
+    // Per-pad FILTER + REVERB SEND knobs
+    document.getElementById('trim-filter').addEventListener('input', e => {
+        if (trimPadIndex === null) return;
+        padFilter[trimPadIndex] = parseFloat(e.target.value);
+        updateTrimUI();
+        markExportDirty();
+    });
+    document.getElementById('trim-filter').addEventListener('dblclick', () => {
+        if (trimPadIndex === null) return;
+        padFilter[trimPadIndex] = 0;
+        updateTrimUI();
+        markExportDirty();
+    });
+    document.getElementById('trim-revsend').addEventListener('input', e => {
+        if (trimPadIndex === null) return;
+        padReverbSend[trimPadIndex] = parseFloat(e.target.value);
         updateTrimUI();
         markExportDirty();
     });

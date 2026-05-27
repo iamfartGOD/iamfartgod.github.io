@@ -674,29 +674,62 @@
         .trim-controls button:hover { background: var(--fg); color: var(--bg); }
         .trim-controls #trim-preview { margin-left: auto; }
 
-        /* GFX scope toggle (Global vs Per Pad) */
-        .fx-scope {
+        /* Pitch ±1 / ±12 buttons inside the pad editor */
+        .trim-pitch-btns {
             display: flex;
-            align-items: stretch;
-            border: 2px solid var(--bg);
-            background: var(--bg);
-            margin-top: 4px;
+            border: 2px solid var(--fg);
         }
-        .fx-scope button {
+        .trim-pitch-btn {
             background: var(--bg);
             color: var(--fg);
             border: none;
-            border-right: 2px solid var(--bg);
-            padding: 3px 8px;
+            border-right: 2px solid var(--fg);
+            padding: 8px 10px;
             font-family: inherit;
-            font-size: 9px;
             font-weight: 800;
-            letter-spacing: 0.16em;
+            font-size: 11px;
             text-transform: uppercase;
+            letter-spacing: 0.08em;
             cursor: pointer;
+            min-width: 44px;
         }
-        .fx-scope button:last-child { border-right: none; }
-        .fx-scope button.on { background: var(--accent-2); color: var(--bg); }
+        .trim-pitch-btn:last-child { border-right: none; }
+        .trim-pitch-btn:hover { background: var(--accent-2); color: var(--bg); }
+
+        /* Per-pad knob row (FILTER + REV SEND) */
+        .trim-knobs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            border-top: 2px solid var(--fg);
+            border-bottom: 2px solid var(--fg);
+        }
+        .trim-knob {
+            padding: 10px 14px;
+            border-right: 1px solid var(--fg);
+        }
+        .trim-knob:last-child { border-right: none; }
+        .trim-knob .klbl {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 0.18em;
+            color: var(--dim);
+            margin-bottom: 8px;
+        }
+        .trim-knob .klbl b { color: var(--fg); font-weight: 700; font-size: 12px; letter-spacing: 0; }
+        .trim-knob input[type="range"] {
+            width: 100%;
+            background: var(--mute);
+        }
+        .trim-knob input[type="range"]::-webkit-slider-thumb {
+            background: var(--accent-2);
+        }
+        .trim-knob input[type="range"]::-moz-range-thumb {
+            background: var(--accent-2);
+        }
+
 
         /* Sequencer */
         .seq {
@@ -983,16 +1016,13 @@
         .gfx .gfx-title {
             background: var(--fg);
             color: var(--bg);
-            padding: 8px 14px;
+            padding: 0 18px;
             font-weight: 800;
             text-transform: uppercase;
             letter-spacing: 0.2em;
             font-size: 12px;
             display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: flex-start;
-            gap: 4px;
+            align-items: center;
             border-right: 2px solid var(--fg);
             min-height: 72px;
             white-space: nowrap;
@@ -1606,13 +1636,7 @@
         </div>
 
         <section class="gfx" aria-label="Global FX">
-            <div class="gfx-title">
-                <span>// GLOBAL FX</span>
-                <div class="fx-scope" title="Filter scope — Global affects the whole bus, Per Pad gives each pad its own filter setting">
-                    <button data-scope="GLOBAL" class="on">GLOBAL</button>
-                    <button data-scope="PER_PAD">PER PAD</button>
-                </div>
-            </div>
+            <div class="gfx-title">// GLOBAL FX</div>
             <div class="gfx-knob">
                 <div class="klbl"><span>// DJ FILTER</span><b id="filter-v">OFF</b></div>
                 <div class="filter-track"><input type="range" id="filter-knob" min="-1" max="1" step="0.005" value="0"></div>
@@ -1773,8 +1797,8 @@
     <div class="trim-modal" id="trim-modal" role="dialog" aria-modal="true">
         <div class="trim-content">
             <div class="trim-head">
-                <span>// TRIM SAMPLE · <b id="trim-pad-label">PAD 01</b></span>
-                <button id="trim-close" title="Close">CLOSE</button>
+                <span>// EDIT · <b id="trim-pad-label">PAD 01</b></span>
+                <button id="trim-close" title="Close">DONE</button>
             </div>
             <div class="trim-wave-wrap">
                 <canvas class="trim-canvas" id="trim-canvas"></canvas>
@@ -1785,6 +1809,25 @@
             <div class="trim-controls">
                 <div>START: <b id="trim-start-time">0 MS</b></div>
                 <div>END: <b id="trim-end-time">0 MS</b></div>
+                <div>PITCH: <b id="trim-pitch-v">+0 ST</b></div>
+                <div class="trim-pitch-btns">
+                    <button class="trim-pitch-btn" data-step="-12" title="Octave down">−12</button>
+                    <button class="trim-pitch-btn" data-step="-1"  title="Semitone down">−1</button>
+                    <button class="trim-pitch-btn" data-step="1"   title="Semitone up">+1</button>
+                    <button class="trim-pitch-btn" data-step="12"  title="Octave up">+12</button>
+                </div>
+            </div>
+            <div class="trim-knobs">
+                <div class="trim-knob">
+                    <div class="klbl"><span>// FILTER</span><b id="trim-filter-v">OFF</b></div>
+                    <div class="filter-track"><input type="range" id="trim-filter" min="-1" max="1" step="0.01" value="0"></div>
+                </div>
+                <div class="trim-knob">
+                    <div class="klbl"><span>// REV SEND</span><b id="trim-revsend-v">100%</b></div>
+                    <input type="range" id="trim-revsend" min="0" max="2" step="0.01" value="1">
+                </div>
+            </div>
+            <div class="trim-controls">
                 <button id="trim-preview">▶ PREVIEW</button>
                 <button id="trim-reset">RESET</button>
             </div>
@@ -1936,11 +1979,13 @@
         const start = when || audioCtx.currentTime;
         const src = audioCtx.createBufferSource();
         src.buffer = buffer;
-        const totalSemis = semitones + effPitch(padIndex);
+        const hasPad = padIndex !== undefined && padIndex !== null;
+        const padSemi = hasPad ? (padPitch[padIndex] || 0) : 0;
+        const totalSemis = semitones + globalPitch + padSemi;
         const rate = Math.pow(2, totalSemis / 12);
         src.playbackRate.value = rate;
 
-        const trim = (padIndex !== undefined && padIndex !== null) ? padTrim[padIndex] : { start: 0, end: 1 };
+        const trim = hasPad ? padTrim[padIndex] : { start: 0, end: 1 };
         const offsetSec = trim.start * buffer.duration;
         const trimmedRange = Math.max(0.005, (trim.end - trim.start) * buffer.duration);
         const naturalDur = trimmedRange / rate;
@@ -1948,9 +1993,9 @@
         const g = audioCtx.createGain();
         src.connect(g);
 
-        const lenSec = effLength(padIndex) / 1000;
+        const lenSec = env.length / 1000;
         const playDur = Math.min(naturalDur, lenSec);
-        const attackSec = Math.max(0.001, effAttack(padIndex) / 1000);
+        const attackSec = Math.max(0.001, env.attack / 1000);
         const releaseSec = 0.025;
         const aEnd = start + Math.min(attackSec, playDur);
         const rStart = start + Math.max(aEnd - start, playDur - releaseSec);
@@ -1961,12 +2006,10 @@
         g.gain.setValueAtTime(1.0, rStart);
         g.gain.exponentialRampToValueAtTime(0.0001, stopAt);
 
-        // Per-pad DJ filter — only active when fxScope is PER_PAD and the
-        // pad's filter value isn't ~0. Created ephemerally so we don't hold
-        // 27 unused filter pairs alive forever.
+        // Per-pad DJ filter — applies whenever the pad's filter value is
+        // non-zero. Ephemeral nodes so passive pads pay no cost.
         let endOfChain = g;
-        if (padIndex !== undefined && padIndex !== null &&
-            fxScope === 'PER_PAD' && Math.abs(padFilter[padIndex]) > 0.02) {
+        if (hasPad && Math.abs(padFilter[padIndex]) > 0.02) {
             const { hpf, lpf } = djFilterFreqs(padFilter[padIndex]);
             const pHPF = audioCtx.createBiquadFilter();
             pHPF.type = 'highpass';
@@ -1982,7 +2025,17 @@
         }
 
         endOfChain.connect(dryNode);
-        endOfChain.connect(convNode);
+
+        // Per-pad reverb send — scales how much of this voice reaches the
+        // master plate. 0 = no reverb on this pad, 1 = full, up to 2 boost.
+        const sendVal = hasPad ? padReverbSend[padIndex] : 1;
+        if (sendVal > 0) {
+            const sendGain = audioCtx.createGain();
+            sendGain.gain.value = sendVal;
+            endOfChain.connect(sendGain);
+            sendGain.connect(convNode);
+        }
+
         src.start(start, offsetSec);
         src.stop(stopAt + 0.05);
 
@@ -2012,23 +2065,14 @@
     const padsEl = document.getElementById('sample-buttons');
     let armedIndex = null;
 
-    // Per-pad state:
-    //   padTrim[i]   — { start: 0..1, end: 0..1 } (normalized to buffer.duration)
-    //   padFilter[i] — DJ filter value (-1..+1) used when fxScope = 'PER_PAD'
-    const padTrim   = sampleFiles.map(() => ({ start: 0, end: 1 }));
-    const padFilter = sampleFiles.map(() => 0);
-    const padAttack = sampleFiles.map(() => 0);
-    const padLength = sampleFiles.map(() => 5000);
-    const padPitch  = sampleFiles.map(() => 0);
-    let fxScope = 'GLOBAL';          // 'GLOBAL' or 'PER_PAD'
-    let globalFilterValue = 0;       // remembered separately from per-pad values
-
-    // Effective values for scheduling — when scope is PER_PAD, the armed
-    // pad's stored values take over for that voice. In GLOBAL scope the
-    // bus-level knobs apply.
-    function effPitch(i)  { return (fxScope === 'PER_PAD' && i != null) ? padPitch[i]  : globalPitch; }
-    function effAttack(i) { return (fxScope === 'PER_PAD' && i != null) ? padAttack[i] : env.attack; }
-    function effLength(i) { return (fxScope === 'PER_PAD' && i != null) ? padLength[i] : env.length; }
+    // Per-pad track parameters (Digitakt-style — each pad has its own
+    // independent track, edited in the long-press pad editor). The
+    // GLOBAL FX strip stays for performance/master FX; per-pad values
+    // apply on each voice in addition to global.
+    const padTrim       = sampleFiles.map(() => ({ start: 0, end: 1 }));
+    const padPitch      = sampleFiles.map(() => 0);    // semitones (±24), additive
+    const padFilter     = sampleFiles.map(() => 0);    // -1..+1 DJ-style, 0 = off
+    const padReverbSend = sampleFiles.map(() => 1);    // 0..2, scales wet send
 
     sampleFiles.forEach((file, i) => {
         const b = document.createElement('button');
@@ -2106,12 +2150,6 @@
             granLbl.textContent = `PAD ${String(i+1).padStart(2,'0')} · FART ${i+1}`;
             // Preload buffer for granular use
             loadSample(sampleFiles[i]).then(b => { granArmedBuffer = b; });
-        }
-        // If FX is in PER_PAD scope, reflect the newly-armed pad's values
-        // on every knob (filter / attack / length / pitch).
-        if (fxScope === 'PER_PAD') {
-            // refreshFxKnobs is declared further down — hoisted, so safe.
-            refreshFxKnobs();
         }
     }
 
@@ -2773,113 +2811,47 @@
     });
 
     // ---------- Global FX wiring ----------
+    // All GLOBAL FX knobs write to global state only. Per-pad versions
+    // of filter/pitch/reverb-send live in the pad editor (long-press).
     const filterKnob = document.getElementById('filter-knob');
     const filterValEl = document.getElementById('filter-v');
 
-    function updateFilterDisplay(v) {
-        let txt;
-        if (Math.abs(v) < 0.02) txt = 'OFF';
-        else if (v < 0) {
-            const cutoff = 200 * Math.pow(100, v + 1);
-            txt = 'LP ' + (cutoff < 1000 ? Math.round(cutoff) + 'HZ' : (cutoff/1000).toFixed(1) + 'K');
-        } else {
-            const cutoff = 20 * Math.pow(250, v);
-            txt = 'HP ' + (cutoff < 1000 ? Math.round(cutoff) + 'HZ' : (cutoff/1000).toFixed(1) + 'K');
-        }
-        if (fxScope === 'PER_PAD') {
-            txt = (armedIndex !== null ? `PAD ${String(armedIndex+1).padStart(2,'0')} · ` : '— · ') + txt;
-        }
-        filterValEl.textContent = txt;
-    }
-
-    // Set the global filter nodes from value v (used only in GLOBAL scope).
-    function applyGlobalFilter(v) {
+    function applyFilter(v) {
         const { hpf, lpf } = djFilterFreqs(v);
         filterHPF.frequency.value = hpf;
         filterLPF.frequency.value = lpf;
+        if (Math.abs(v) < 0.02) filterValEl.textContent = 'OFF';
+        else if (v < 0) filterValEl.textContent = 'LP ' + (lpf < 1000 ? Math.round(lpf) + 'HZ' : (lpf/1000).toFixed(1) + 'K');
+        else            filterValEl.textContent = 'HP ' + (hpf < 1000 ? Math.round(hpf) + 'HZ' : (hpf/1000).toFixed(1) + 'K');
     }
-
-    function applyFilterKnob(v) {
-        if (fxScope === 'GLOBAL') {
-            globalFilterValue = v;
-            applyGlobalFilter(v);
-        } else {
-            if (armedIndex !== null) padFilter[armedIndex] = v;
-            // Per-pad mode: bus stays at neutral so only voices route the filter
-            applyGlobalFilter(0);
-        }
-        updateFilterDisplay(v);
-    }
-
-    filterKnob.addEventListener('input', e => { applyFilterKnob(parseFloat(e.target.value)); markExportDirty(); });
-    filterKnob.addEventListener('dblclick', () => {
-        filterKnob.value = 0;
-        applyFilterKnob(0);
-        markExportDirty();
-    });
-    applyFilterKnob(0);
-
-    // FX scope toggle (GLOBAL <-> PER_PAD)
-    const fxScopeBtns = document.querySelectorAll('.fx-scope button');
-    function setFxScope(scope) {
-        fxScope = scope;
-        fxScopeBtns.forEach(btn => btn.classList.toggle('on', btn.dataset.scope === scope));
-        // Bus filter stays neutral in PER_PAD; restored in GLOBAL.
-        applyGlobalFilter(scope === 'PER_PAD' ? 0 : globalFilterValue);
-        // refreshFxKnobs is defined just below this scope-toggle block, but
-        // function declarations are hoisted so the forward-ref is fine.
-        refreshFxKnobs();
-        markExportDirty();
-    }
-    fxScopeBtns.forEach(btn => btn.addEventListener('click', () => setFxScope(btn.dataset.scope)));
+    filterKnob.addEventListener('input', e => { applyFilter(parseFloat(e.target.value)); markExportDirty(); });
+    filterKnob.addEventListener('dblclick', () => { filterKnob.value = 0; applyFilter(0); markExportDirty(); });
+    applyFilter(0);
 
     const envAtt = document.getElementById('env-att');
     const envAttV = document.getElementById('env-att-v');
     envAtt.addEventListener('input', e => {
-        const v = parseInt(e.target.value);
-        if (fxScope === 'PER_PAD' && armedIndex !== null) padAttack[armedIndex] = v;
-        else env.attack = v;
-        envAttV.textContent = v + ' MS';
+        env.attack = parseInt(e.target.value);
+        envAttV.textContent = env.attack + ' MS';
         markExportDirty();
     });
 
     const envLen = document.getElementById('env-len');
     const envLenV = document.getElementById('env-len-v');
     envLen.addEventListener('input', e => {
-        const v = parseInt(e.target.value);
-        if (fxScope === 'PER_PAD' && armedIndex !== null) padLength[armedIndex] = v;
-        else env.length = v;
-        envLenV.textContent = v >= 5000 ? 'FULL' : v + ' MS';
+        env.length = parseInt(e.target.value);
+        envLenV.textContent = env.length >= 5000 ? 'FULL' : env.length + ' MS';
         markExportDirty();
     });
 
     const gPitch = document.getElementById('gpitch');
     const gPitchV = document.getElementById('gpitch-v');
     gPitch.addEventListener('input', e => {
-        const v = parseInt(e.target.value);
-        if (fxScope === 'PER_PAD' && armedIndex !== null) padPitch[armedIndex] = v;
-        else globalPitch = v;
-        gPitchV.textContent = (v > 0 ? '+' : '') + v + ' ST';
+        globalPitch = parseInt(e.target.value);
+        gPitchV.textContent = (globalPitch > 0 ? '+' : '') + globalPitch + ' ST';
         markExportDirty();
     });
     gPitch.addEventListener('dblclick', () => { gPitch.value = 0; gPitch.dispatchEvent(new Event('input')); });
-
-    // Push knob values into the DOM (used when switching scope or armed pad).
-    function refreshFxKnobs() {
-        const usePerPad = fxScope === 'PER_PAD' && armedIndex !== null;
-        const fv = usePerPad ? padFilter[armedIndex] : globalFilterValue;
-        filterKnob.value = fv;
-        updateFilterDisplay(fv);
-        const av = usePerPad ? padAttack[armedIndex] : env.attack;
-        envAtt.value = av;
-        envAttV.textContent = av + ' MS';
-        const lv = usePerPad ? padLength[armedIndex] : env.length;
-        envLen.value = lv;
-        envLenV.textContent = lv >= 5000 ? 'FULL' : lv + ' MS';
-        const pv = usePerPad ? padPitch[armedIndex] : globalPitch;
-        gPitch.value = pv;
-        gPitchV.textContent = (pv > 0 ? '+' : '') + pv + ' ST';
-    }
 
     // ---------- WAV export + drag-to-DAW ----------
     function audioBufferToWav(buffer) {
@@ -3194,12 +3166,30 @@
         const dur = trimBuffer ? trimBuffer.duration : 0;
         trimStartTime.textContent = Math.round(t.start * dur * 1000) + ' MS';
         trimEndTime.textContent   = Math.round(t.end   * dur * 1000) + ' MS';
+        const p = padPitch[trimPadIndex] || 0;
+        document.getElementById('trim-pitch-v').textContent =
+            (p > 0 ? '+' : '') + p + ' ST';
+        const fv = padFilter[trimPadIndex] || 0;
+        document.getElementById('trim-filter').value = fv;
+        const filterText = (() => {
+            if (Math.abs(fv) < 0.02) return 'OFF';
+            if (fv < 0) {
+                const c = 200 * Math.pow(100, fv + 1);
+                return 'LP ' + (c < 1000 ? Math.round(c) + 'HZ' : (c/1000).toFixed(1) + 'K');
+            }
+            const c = 20 * Math.pow(250, fv);
+            return 'HP ' + (c < 1000 ? Math.round(c) + 'HZ' : (c/1000).toFixed(1) + 'K');
+        })();
+        document.getElementById('trim-filter-v').textContent = filterText;
+        const rs = padReverbSend[trimPadIndex];
+        document.getElementById('trim-revsend').value = rs;
+        document.getElementById('trim-revsend-v').textContent = Math.round(rs * 100) + '%';
         drawTrimWaveform();
-        // Indicate the pad has a non-default trim
         const padEl = padsEl.children[trimPadIndex];
         if (padEl) {
-            const isDefault = t.start <= 0.001 && t.end >= 0.999;
-            padEl.classList.toggle('has-trim', !isDefault);
+            const trimDefault = t.start <= 0.001 && t.end >= 0.999;
+            const allDefault  = trimDefault && p === 0 && Math.abs(fv) < 0.02 && rs === 1;
+            padEl.classList.toggle('has-trim', !allDefault);
         }
     }
 
@@ -3225,13 +3215,54 @@
     });
     document.getElementById('trim-reset').addEventListener('click', () => {
         if (trimPadIndex === null) return;
-        padTrim[trimPadIndex] = { start: 0, end: 1 };
+        padTrim[trimPadIndex]       = { start: 0, end: 1 };
+        padPitch[trimPadIndex]      = 0;
+        padFilter[trimPadIndex]     = 0;
+        padReverbSend[trimPadIndex] = 1;
         updateTrimUI();
         markExportDirty();
     });
     document.getElementById('trim-preview').addEventListener('click', () => {
         if (trimPadIndex === null) return;
         triggerSample(sampleFiles[trimPadIndex], 0, trimPadIndex);
+    });
+
+    // Click anywhere on the waveform to preview the trimmed range.
+    trimCanvas.addEventListener('click', () => {
+        if (trimPadIndex !== null) triggerSample(sampleFiles[trimPadIndex], 0, trimPadIndex);
+    });
+
+    // Pitch ± buttons
+    document.querySelectorAll('.trim-pitch-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            if (trimPadIndex === null) return;
+            const step = parseInt(btn.dataset.step, 10);
+            padPitch[trimPadIndex] = Math.max(-24, Math.min(24,
+                (padPitch[trimPadIndex] || 0) + step));
+            updateTrimUI();
+            markExportDirty();
+            triggerSample(sampleFiles[trimPadIndex], 0, trimPadIndex);
+        });
+    });
+
+    // Per-pad FILTER + REVERB SEND knobs
+    document.getElementById('trim-filter').addEventListener('input', e => {
+        if (trimPadIndex === null) return;
+        padFilter[trimPadIndex] = parseFloat(e.target.value);
+        updateTrimUI();
+        markExportDirty();
+    });
+    document.getElementById('trim-filter').addEventListener('dblclick', () => {
+        if (trimPadIndex === null) return;
+        padFilter[trimPadIndex] = 0;
+        updateTrimUI();
+        markExportDirty();
+    });
+    document.getElementById('trim-revsend').addEventListener('input', e => {
+        if (trimPadIndex === null) return;
+        padReverbSend[trimPadIndex] = parseFloat(e.target.value);
+        updateTrimUI();
+        markExportDirty();
     });
 
     function makeTrimHandleDraggable(handle, key) {
