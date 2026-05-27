@@ -500,14 +500,9 @@
             background: var(--accent-2);
             color: var(--bg);
         }
-        .pad.armed::after {
-            content: "● ARMED";
-            position: absolute;
-            top: 6px; right: 8px;
-            font-size: 8px;
-            letter-spacing: 0.16em;
-            font-weight: 700;
-        }
+        /* Armed pad uses lime background + lime keyboard label as the
+           visual cue. The "● ARMED" text overlapped the waveform icon, so
+           removed in favor of just the color state. */
         .pad .num {
             font-size: 10px;
             opacity: 0.6;
@@ -537,29 +532,36 @@
         .pad.has-seq .seq-flag { display: block; }
         .pad.armed .seq-flag { display: none; }
 
-        /* Tiny waveform icon — opens the trim editor for that pad */
+        /* Waveform icon — visible but subtle. Lime tint at low opacity
+           reads as a clickable detail without competing with the pad
+           number. Brightens on hover; flips dark on the armed (lime) pad. */
         .pad-edit {
             position: absolute;
             top: 4px;
             right: 4px;
-            background: transparent;
-            color: var(--dim);
-            border: 1px solid var(--mute);
+            background: rgba(0,0,0,0.35);
+            color: var(--accent-2);
+            border: 1px solid var(--accent-2);
             padding: 3px 5px;
             cursor: pointer;
             line-height: 0;
             z-index: 2;
-            transition: color 60ms linear, border-color 60ms linear, background 60ms linear;
+            opacity: 0.55;
+            transition: opacity 80ms linear, color 60ms linear, border-color 60ms linear, background 60ms linear;
         }
         .pad-edit:hover {
-            color: var(--accent-2);
-            border-color: var(--accent-2);
-            background: rgba(0,0,0,0.4);
+            opacity: 1;
+            background: rgba(0,0,0,0.6);
         }
         .pad-edit svg { display: block; }
-        .pad.armed .pad-edit { color: var(--bg); border-color: var(--bg); }
-        .pad.armed .pad-edit:hover { color: var(--bg); border-color: var(--bg); background: rgba(255,255,255,0.18); }
-        .pad.has-trim .pad-edit { color: var(--accent-2); border-color: var(--accent-2); }
+        .pad.armed .pad-edit {
+            color: var(--bg);
+            border-color: var(--bg);
+            background: rgba(255,255,255,0.18);
+            opacity: 0.7;
+        }
+        .pad.armed .pad-edit:hover { opacity: 1; }
+        .pad.has-trim .pad-edit { opacity: 1; }
         .pad.long-pressed { outline: 3px solid var(--accent-2); outline-offset: -3px; }
 
         /* Trim modal */
@@ -1934,7 +1936,7 @@
         const start = when || audioCtx.currentTime;
         const src = audioCtx.createBufferSource();
         src.buffer = buffer;
-        const totalSemis = semitones + globalPitch;
+        const totalSemis = semitones + effPitch(padIndex);
         const rate = Math.pow(2, totalSemis / 12);
         src.playbackRate.value = rate;
 
@@ -1946,9 +1948,9 @@
         const g = audioCtx.createGain();
         src.connect(g);
 
-        const lenSec = env.length / 1000;
+        const lenSec = effLength(padIndex) / 1000;
         const playDur = Math.min(naturalDur, lenSec);
-        const attackSec = Math.max(0.001, env.attack / 1000);
+        const attackSec = Math.max(0.001, effAttack(padIndex) / 1000);
         const releaseSec = 0.025;
         const aEnd = start + Math.min(attackSec, playDur);
         const rStart = start + Math.max(aEnd - start, playDur - releaseSec);
@@ -2015,8 +2017,18 @@
     //   padFilter[i] — DJ filter value (-1..+1) used when fxScope = 'PER_PAD'
     const padTrim   = sampleFiles.map(() => ({ start: 0, end: 1 }));
     const padFilter = sampleFiles.map(() => 0);
+    const padAttack = sampleFiles.map(() => 0);
+    const padLength = sampleFiles.map(() => 5000);
+    const padPitch  = sampleFiles.map(() => 0);
     let fxScope = 'GLOBAL';          // 'GLOBAL' or 'PER_PAD'
     let globalFilterValue = 0;       // remembered separately from per-pad values
+
+    // Effective values for scheduling — when scope is PER_PAD, the armed
+    // pad's stored values take over for that voice. In GLOBAL scope the
+    // bus-level knobs apply.
+    function effPitch(i)  { return (fxScope === 'PER_PAD' && i != null) ? padPitch[i]  : globalPitch; }
+    function effAttack(i) { return (fxScope === 'PER_PAD' && i != null) ? padAttack[i] : env.attack; }
+    function effLength(i) { return (fxScope === 'PER_PAD' && i != null) ? padLength[i] : env.length; }
 
     sampleFiles.forEach((file, i) => {
         const b = document.createElement('button');
@@ -2095,11 +2107,11 @@
             // Preload buffer for granular use
             loadSample(sampleFiles[i]).then(b => { granArmedBuffer = b; });
         }
-        // If filter is in PER_PAD scope, reflect the newly-armed pad's value.
+        // If FX is in PER_PAD scope, reflect the newly-armed pad's values
+        // on every knob (filter / attack / length / pitch).
         if (fxScope === 'PER_PAD') {
-            const v = i !== null ? padFilter[i] : 0;
-            filterKnob.value = v;
-            updateFilterDisplay(v);
+            // refreshFxKnobs is declared further down — hoisted, so safe.
+            refreshFxKnobs();
         }
     }
 
@@ -2812,18 +2824,11 @@
     function setFxScope(scope) {
         fxScope = scope;
         fxScopeBtns.forEach(btn => btn.classList.toggle('on', btn.dataset.scope === scope));
-        // When entering PER_PAD, knob shows the armed pad's value.
-        // When returning to GLOBAL, knob shows the remembered global value.
-        let v;
-        if (scope === 'PER_PAD') {
-            v = armedIndex !== null ? padFilter[armedIndex] : 0;
-            applyGlobalFilter(0); // bus filter neutral
-        } else {
-            v = globalFilterValue;
-            applyGlobalFilter(v);
-        }
-        filterKnob.value = v;
-        updateFilterDisplay(v);
+        // Bus filter stays neutral in PER_PAD; restored in GLOBAL.
+        applyGlobalFilter(scope === 'PER_PAD' ? 0 : globalFilterValue);
+        // refreshFxKnobs is defined just below this scope-toggle block, but
+        // function declarations are hoisted so the forward-ref is fine.
+        refreshFxKnobs();
         markExportDirty();
     }
     fxScopeBtns.forEach(btn => btn.addEventListener('click', () => setFxScope(btn.dataset.scope)));
@@ -2831,27 +2836,50 @@
     const envAtt = document.getElementById('env-att');
     const envAttV = document.getElementById('env-att-v');
     envAtt.addEventListener('input', e => {
-        env.attack = parseInt(e.target.value);
-        envAttV.textContent = env.attack + ' MS';
+        const v = parseInt(e.target.value);
+        if (fxScope === 'PER_PAD' && armedIndex !== null) padAttack[armedIndex] = v;
+        else env.attack = v;
+        envAttV.textContent = v + ' MS';
         markExportDirty();
     });
 
     const envLen = document.getElementById('env-len');
     const envLenV = document.getElementById('env-len-v');
     envLen.addEventListener('input', e => {
-        env.length = parseInt(e.target.value);
-        envLenV.textContent = env.length >= 5000 ? 'FULL' : env.length + ' MS';
+        const v = parseInt(e.target.value);
+        if (fxScope === 'PER_PAD' && armedIndex !== null) padLength[armedIndex] = v;
+        else env.length = v;
+        envLenV.textContent = v >= 5000 ? 'FULL' : v + ' MS';
         markExportDirty();
     });
 
     const gPitch = document.getElementById('gpitch');
     const gPitchV = document.getElementById('gpitch-v');
     gPitch.addEventListener('input', e => {
-        globalPitch = parseInt(e.target.value);
-        gPitchV.textContent = (globalPitch > 0 ? '+' : '') + globalPitch + ' ST';
+        const v = parseInt(e.target.value);
+        if (fxScope === 'PER_PAD' && armedIndex !== null) padPitch[armedIndex] = v;
+        else globalPitch = v;
+        gPitchV.textContent = (v > 0 ? '+' : '') + v + ' ST';
         markExportDirty();
     });
     gPitch.addEventListener('dblclick', () => { gPitch.value = 0; gPitch.dispatchEvent(new Event('input')); });
+
+    // Push knob values into the DOM (used when switching scope or armed pad).
+    function refreshFxKnobs() {
+        const usePerPad = fxScope === 'PER_PAD' && armedIndex !== null;
+        const fv = usePerPad ? padFilter[armedIndex] : globalFilterValue;
+        filterKnob.value = fv;
+        updateFilterDisplay(fv);
+        const av = usePerPad ? padAttack[armedIndex] : env.attack;
+        envAtt.value = av;
+        envAttV.textContent = av + ' MS';
+        const lv = usePerPad ? padLength[armedIndex] : env.length;
+        envLen.value = lv;
+        envLenV.textContent = lv >= 5000 ? 'FULL' : lv + ' MS';
+        const pv = usePerPad ? padPitch[armedIndex] : globalPitch;
+        gPitch.value = pv;
+        gPitchV.textContent = (pv > 0 ? '+' : '') + pv + ' ST';
+    }
 
     // ---------- WAV export + drag-to-DAW ----------
     function audioBufferToWav(buffer) {
