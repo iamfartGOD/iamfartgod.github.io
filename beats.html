@@ -482,23 +482,36 @@
         .trim-handle {
             position: absolute;
             top: 0; bottom: 0;
-            width: 28px;            /* big touch target on mobile */
-            margin-left: -14px;
+            width: 48px;            /* fat touch target — easy to grab */
+            margin-left: -24px;
             cursor: ew-resize;
             z-index: 3;
             background: transparent;
             touch-action: none;
         }
+        /* Vertical bar — the visible grab indicator */
         .trim-handle::after {
             content: "";
             position: absolute;
-            left: 12px;
+            left: 18px;
             top: 0;
             bottom: 0;
-            width: 4px;
+            width: 12px;
             background: var(--accent);
         }
-        .trim-handle:active::after { background: var(--accent-2); }
+        /* Top knob — gives it an obvious "drag me" affordance */
+        .trim-handle::before {
+            content: "";
+            position: absolute;
+            left: 10px;
+            top: 0;
+            width: 28px;
+            height: 18px;
+            background: var(--accent);
+        }
+        .trim-handle:active::after,
+        .trim-handle:active::before { background: var(--accent-2); }
+        .trim-canvas { cursor: pointer; }
         .trim-controls {
             padding: 12px 16px;
             display: flex;
@@ -526,6 +539,30 @@
         }
         .trim-controls button:hover { background: var(--fg); color: var(--bg); }
         .trim-controls #trim-preview { margin-left: auto; }
+
+        /* Pitch buttons inside trim modal */
+        .trim-pitch-btns {
+            display: flex;
+            border: 2px solid var(--fg);
+        }
+        .trim-pitch-btn {
+            background: var(--bg);
+            color: var(--fg);
+            border: none;
+            border-right: 2px solid var(--fg);
+            padding: 8px 10px;
+            font-family: inherit;
+            font-weight: 800;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            cursor: pointer;
+            min-width: 44px;
+            min-height: 44px;
+        }
+        .trim-pitch-btn:last-child { border-right: none; }
+        .trim-pitch-btn:hover { background: var(--accent-2); color: var(--bg); }
+        .trim-pitch-btn:active { background: var(--accent); color: var(--bg); }
         @media (max-width: 520px) {
             .trim-controls { gap: 8px; padding: 10px; font-size: 10px; }
             .trim-controls button { padding: 8px 10px; font-size: 10px; min-width: 0; }
@@ -710,6 +747,13 @@
             <div class="trim-controls">
                 <div>START: <b id="trim-start-time">0 MS</b></div>
                 <div>END: <b id="trim-end-time">0 MS</b></div>
+                <div>PITCH: <b id="trim-pitch-v">+0 ST</b></div>
+                <div class="trim-pitch-btns">
+                    <button class="trim-pitch-btn" data-step="-12" title="Octave down">−12</button>
+                    <button class="trim-pitch-btn" data-step="-1"  title="Semitone down">−1</button>
+                    <button class="trim-pitch-btn" data-step="1"   title="Semitone up">+1</button>
+                    <button class="trim-pitch-btn" data-step="12"  title="Octave up">+12</button>
+                </div>
                 <button id="trim-preview">▶ PREVIEW</button>
                 <button id="trim-reset">RESET</button>
             </div>
@@ -822,6 +866,8 @@
     const sampleFiles = Array.from({length: 27}, (_, i) => `Fart${i+1}.wav`);
     // Per-pad trim — { start: 0..1, end: 0..1 } normalized to buffer.duration
     const padTrim = sampleFiles.map(() => ({ start: 0, end: 1 }));
+    // Per-pad pitch offset in semitones (set from the trim modal's ± buttons)
+    const padPitch = sampleFiles.map(() => 0);
     const sampleCache = new Map();
     function loadSample(file) {
         if (sampleCache.has(file)) return sampleCache.get(file);
@@ -868,7 +914,8 @@
         const start = when || audioCtx.currentTime;
         const src = audioCtx.createBufferSource();
         src.buffer = buffer;
-        const rate = Math.pow(2, (semitones + globalPitch) / 12);
+        const padSemi = (padIndex !== undefined && padIndex !== null) ? (padPitch[padIndex] || 0) : 0;
+        const rate = Math.pow(2, (semitones + globalPitch + padSemi) / 12);
         src.playbackRate.value = rate;
 
         // Apply per-pad start/end trim to the BufferSource offset + duration.
@@ -1466,11 +1513,14 @@
         const dur = trimBuffer ? trimBuffer.duration : 0;
         trimStartTime.textContent = Math.round(t.start * dur * 1000) + ' MS';
         trimEndTime.textContent   = Math.round(t.end   * dur * 1000) + ' MS';
+        const p = padPitch[trimPadIndex] || 0;
+        document.getElementById('trim-pitch-v').textContent =
+            (p > 0 ? '+' : '') + p + ' ST';
         drawTrimWaveform();
         const padEl = padsEl.children[trimPadIndex];
         if (padEl) {
-            const isDefault = t.start <= 0.001 && t.end >= 0.999;
-            padEl.classList.toggle('has-trim', !isDefault);
+            const trimDefault = t.start <= 0.001 && t.end >= 0.999;
+            padEl.classList.toggle('has-trim', !(trimDefault && p === 0));
         }
     }
 
@@ -1497,11 +1547,32 @@
     document.getElementById('trim-reset').addEventListener('click', () => {
         if (trimPadIndex === null) return;
         padTrim[trimPadIndex] = { start: 0, end: 1 };
+        padPitch[trimPadIndex] = 0;
         updateTrimUI();
+        markExportDirty();
     });
     document.getElementById('trim-preview').addEventListener('click', () => {
         if (trimPadIndex === null) return;
         previewPad(trimPadIndex);
+    });
+
+    // Click anywhere on the waveform (outside the handles) to preview
+    trimCanvas.addEventListener('click', () => {
+        if (trimPadIndex !== null) previewPad(trimPadIndex);
+    });
+
+    // Pitch buttons (±1 / ±12 semitones)
+    document.querySelectorAll('.trim-pitch-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            if (trimPadIndex === null) return;
+            const step = parseInt(btn.dataset.step, 10);
+            const next = Math.max(-24, Math.min(24, (padPitch[trimPadIndex] || 0) + step));
+            padPitch[trimPadIndex] = next;
+            updateTrimUI();
+            markExportDirty();
+            // Auto-preview so you hear the new pitch immediately
+            previewPad(trimPadIndex);
+        });
     });
 
     function makeTrimHandleDraggable(handle, key) {
