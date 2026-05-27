@@ -181,6 +181,45 @@
         }
         .tempo-row > .dup-btn:hover { background: var(--accent-2); color: var(--bg); }
 
+        /* Mini 1-octave piano (mobile / beats-only). Hidden by default;
+           shown when the KBD button in the pads head is toggled. */
+        .mini-kbd { display: none; }
+        .mini-kbd.show { display: block; }
+        .mini-piano {
+            position: relative;
+            height: 110px;
+            width: 100%;
+            background: var(--bg);
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+        }
+        .mini-piano .wk,
+        .mini-piano .bk {
+            position: absolute;
+            top: 0;
+            cursor: pointer;
+            box-sizing: border-box;
+            touch-action: none;
+        }
+        .mini-piano .wk {
+            background: var(--fg);
+            height: 100%;
+            width: calc(100% / 7);
+            border-right: 1px solid var(--bg);
+            z-index: 1;
+        }
+        .mini-piano .wk:last-of-type { border-right: none; }
+        .mini-piano .bk {
+            background: #060606;
+            height: 62%;
+            width: calc(100% / 7 * 0.55);
+            border: 1px solid #1a1a1a;
+            z-index: 2;
+        }
+        .mini-piano .wk.fire { background: var(--accent); }
+        .mini-piano .bk.fire { background: var(--accent); border-color: var(--accent); }
+
         /* CLR/CLR ALL in the pads head */
         .head-actions {
             display: flex;
@@ -202,6 +241,8 @@
         }
         .head-actions button:first-child { border-left: none; }
         .head-actions button:hover { background: var(--danger); color: var(--fg); }
+        .head-actions button.on { background: var(--accent-2); color: var(--bg); }
+        .head-actions button#kbd-toggle:hover { background: var(--accent-2); color: var(--bg); }
 
         .stepper {
             display: flex;
@@ -679,11 +720,19 @@
             <div class="head">
                 <span>// PADS · <span class="editing" id="editing-label">EDITING PAD 01</span></span>
                 <div class="head-actions">
+                    <button id="kbd-toggle" title="Show/hide 1-octave piano">KBD</button>
                     <button id="clr" title="Clear this pad's row">CLR</button>
                     <button id="clr-all" title="Clear ALL sequences">CLR ALL</button>
                 </div>
             </div>
             <div class="pads" id="pads"></div>
+        </section>
+
+        <!-- Mini 1-octave piano — toggled by KBD. Pitches the armed pad's
+             sample so you can play melodies live (records into the
+             sequence when REC is on, same as the QWERTY-piano flow). -->
+        <section class="module mini-kbd" id="mini-kbd">
+            <div class="mini-piano" id="mini-piano"></div>
         </section>
 
         <!-- STEP GRID -->
@@ -704,8 +753,8 @@
                     <div class="filter-track"><input type="range" id="filter" min="-1" max="1" step="0.005" value="0"></div>
                 </div>
                 <div class="knob">
-                    <div class="klbl"><span>// REVERB</span><b id="rev-v">25%</b></div>
-                    <input type="range" id="rev" min="0" max="1" step="0.01" value="0.25">
+                    <div class="klbl"><span>// REVERB</span><b id="rev-v">5%</b></div>
+                    <input type="range" id="rev" min="0" max="1" step="0.01" value="0.05">
                 </div>
                 <div class="knob">
                     <div class="klbl"><span>// LENGTH</span><b id="len-v">FULL</b></div>
@@ -950,11 +999,11 @@
         return src;
     }
 
-    async function previewPad(i) {
+    async function previewPad(i, semi = 0) {
         try {
             if (ctx.state === 'suspended') await ctx.resume();
             const buf = await loadSample(sampleFiles[i]);
-            scheduleVoice(ctx, padsDry, revSend, buf, 0, 0, true, i);
+            scheduleVoice(ctx, padsDry, revSend, buf, semi, 0, true, i);
         } catch (e) {
             console.warn('[beats] preview failed:', e);
         }
@@ -1011,13 +1060,14 @@
     });
 
     // Record a hit at the step closest to "now" for the given pad.
-    function recordHit(padIndex) {
+    // semi is the pitch offset to record (0 = root).
+    function recordHit(padIndex, semi = 0) {
         if (!isPlaying) return;
         const stepDur = (60 / bpm) / 4;
         const elapsed = ctx.currentTime - liveStepTime;
         let step = liveStep;
         if (elapsed > stepDur / 2) step = (step + 1) % stepCount;
-        sequences[padIndex][step] = 0;
+        sequences[padIndex][step] = semi;
         if (padIndex === armedIndex) {
             const cell = stepsEl.querySelector(`.step[data-step="${step}"]`);
             if (cell) cell.classList.add('on');
@@ -1025,6 +1075,65 @@
         refreshPadIndicators();
         markExportDirty();
     }
+
+    // ---------- Mini 1-octave piano ----------
+    // Pads → "armed" pad → its sample plays at the tapped semitone.
+    // When REC + PLAY are both on, the hit also lands in the running
+    // sequence at the current step, with its pitch.
+    const miniKbd = document.getElementById('mini-kbd');
+    const miniPiano = document.getElementById('mini-piano');
+    const kbdToggleBtn = document.getElementById('kbd-toggle');
+
+    // Inside one octave: C..B = 0..11. White and black overlay layout.
+    const whitePiano = [
+        { semi: 0  }, { semi: 2  }, { semi: 4  }, { semi: 5  },
+        { semi: 7  }, { semi: 9  }, { semi: 11 }
+    ];
+    // Black keys: positioned over the seam after the given white index.
+    const blackPiano = [
+        { semi: 1,  after: 0 }, // C#
+        { semi: 3,  after: 1 }, // D#
+        { semi: 6,  after: 3 }, // F#
+        { semi: 8,  after: 4 }, // G#
+        { semi: 10, after: 5 }, // A#
+    ];
+    const playPianoNote = (semi) => {
+        if (armedIndex === null) return;
+        if (recArmed && isPlaying) recordHit(armedIndex, semi);
+        previewPad(armedIndex, semi);
+    };
+    whitePiano.forEach((w, i) => {
+        const el = document.createElement('div');
+        el.className = 'wk';
+        el.style.left = (i * 100 / 7) + '%';
+        const fire = (e) => {
+            e.preventDefault();
+            playPianoNote(w.semi);
+            el.classList.add('fire');
+            setTimeout(() => el.classList.remove('fire'), 120);
+        };
+        el.addEventListener('pointerdown', fire);
+        miniPiano.appendChild(el);
+    });
+    blackPiano.forEach(b => {
+        const el = document.createElement('div');
+        el.className = 'bk';
+        // 0.275 = (1 - 0.55) / 2 + 0  — half of black-key margin offset
+        el.style.left = `calc((${b.after + 1}) * (100% / 7) - (100% / 7 * 0.275))`;
+        const fire = (e) => {
+            e.preventDefault();
+            playPianoNote(b.semi);
+            el.classList.add('fire');
+            setTimeout(() => el.classList.remove('fire'), 120);
+        };
+        el.addEventListener('pointerdown', fire);
+        miniPiano.appendChild(el);
+    });
+
+    kbdToggleBtn.addEventListener('click', () => {
+        const showing = miniKbd.classList.toggle('show');
+        kbdToggleBtn.classList.toggle('on', showing);
+    });
 
     function armPad(i) {
         armedIndex = i;
@@ -1233,8 +1342,8 @@
         document.getElementById('rev-v').textContent = Math.round(mix * 100) + '%';
         markExportDirty();
     });
-    // Apply the initial mix so revSend + reverbHPF match the 25% default
-    applyReverbMix(0.25);
+    // Apply the initial mix so revSend + reverbHPF match the default
+    applyReverbMix(0.05);
     document.getElementById('len').addEventListener('input', e => {
         env.length = parseInt(e.target.value);
         document.getElementById('len-v').textContent = env.length >= 5000 ? 'FULL' : env.length + ' MS';
