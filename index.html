@@ -96,6 +96,35 @@
         }
         @keyframes blink { 50% { opacity: 0.2; } }
 
+        /* Master peak meter — brutalist segmented LED bar.
+           First 9 segments lime, next 4 amber-ish white, last 3 hot accent. */
+        .meter {
+            display: flex;
+            gap: 2px;
+            height: 12px;
+            padding: 2px;
+            border: 1px solid var(--fg);
+            background: #000;
+            flex: 0 0 auto;
+        }
+        .meter .seg {
+            width: 6px;
+            height: 100%;
+            background: var(--mute);
+            transition: background 40ms linear;
+        }
+        .meter .seg.on { background: var(--accent-2); }
+        .meter .seg.on.mid { background: var(--fg); }
+        .meter .seg.on.hot { background: var(--accent); }
+        .meter .seg.clip { background: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+        @media (max-width: 600px) {
+            .meter .seg { width: 4px; }
+            .meter { padding: 1px; gap: 1px; height: 10px; }
+        }
+        @media (max-width: 420px) {
+            .meter { display: none; }
+        }
+
         /* Hero */
         .hero {
             border: 2px solid var(--fg);
@@ -1548,7 +1577,8 @@
 
         <div class="topbar">
             <div><span class="live">SYS // ONLINE</span></div>
-            <div class="meta"><span id="clock">--:--:--</span> · v2.3 · fartGOD.audio</div>
+            <div class="meter" id="meter" aria-label="Master output level"></div>
+            <div class="meta"><span id="clock">--:--:--</span> · v2.4 · fartGOD.audio</div>
         </div>
 
         <header class="hero">
@@ -1894,7 +1924,6 @@
     padsWet.connect(padsBus);
     padsBus.connect(filterHPF);
     filterHPF.connect(filterLPF);
-    filterLPF.connect(ctx.destination);
 
     // Global FX state
     let globalPitch = 0;   // semitones
@@ -1907,7 +1936,31 @@
     analyser.fftSize = 128;
     const freqData = new Uint8Array(analyser.frequencyBinCount);
     musicGain.connect(analyser);
-    analyser.connect(ctx.destination);
+
+    // ---------- Master bus (sum + transparent brick-wall limiter + meter tap)
+    //   padsBus chain ─┐
+    //                  ├→ masterSum → masterLimiter → meterTap → destination
+    //   musicGain ─────┘
+    // Limiter catches stacked pad hits + loud music so the user never
+    // clips. Threshold -1 dB / ratio 20:1 / 1 ms attack / 50 ms release /
+    // hard knee = transparent on normal levels, brick wall on transients.
+    const masterSum = ctx.createGain();
+    masterSum.gain.value = 1.0;
+    const masterLimiter = ctx.createDynamicsCompressor();
+    masterLimiter.threshold.value = -1;
+    masterLimiter.knee.value = 0;
+    masterLimiter.ratio.value = 20;
+    masterLimiter.attack.value = 0.001;
+    masterLimiter.release.value = 0.05;
+    const meterTap = ctx.createAnalyser();
+    meterTap.fftSize = 1024;
+    meterTap.smoothingTimeConstant = 0;
+    const meterBuf = new Float32Array(meterTap.fftSize);
+    filterLPF.connect(masterSum);
+    analyser.connect(masterSum);
+    masterSum.connect(masterLimiter);
+    masterLimiter.connect(meterTap);
+    meterTap.connect(ctx.destination);
 
     // ---------- Reverb (single Medium Plate, fixed IR) ----------
     function makePlateIR(durationSec, decayRate, brightness) {
@@ -2921,7 +2974,16 @@
         offWet.connect(offBus);
         offBus.connect(offHPF);
         offHPF.connect(offLPF);
-        offLPF.connect(off.destination);
+
+        // Match the live master limiter so the export sounds like what you heard.
+        const offLim = off.createDynamicsCompressor();
+        offLim.threshold.value = -1;
+        offLim.knee.value = 0;
+        offLim.ratio.value = 20;
+        offLim.attack.value = 0.001;
+        offLim.release.value = 0.05;
+        offLPF.connect(offLim);
+        offLim.connect(off.destination);
 
         // Preload needed sample buffers (already cached in main ctx)
         const needed = new Set();
@@ -3097,6 +3159,61 @@
         cctx.stroke();
     }
     drawViz();
+
+    // ---------- Master peak meter ----------
+    // 16 segments. Maps peak amplitude (post-limiter, post-music-sum) to
+    // segments via 20*log10(peak) → -42..0 dB across the bar. Decay smooths
+    // the fall; peak hold sticks for ~600ms so transients stay readable.
+    (function initMeter() {
+        const meterEl = document.getElementById('meter');
+        if (!meterEl) return;
+        const SEG_COUNT = 16;
+        const segs = [];
+        for (let i = 0; i < SEG_COUNT; i++) {
+            const s = document.createElement('div');
+            s.className = 'seg';
+            if (i >= 12) s.classList.add('hot-zone');
+            else if (i >= 9) s.classList.add('mid-zone');
+            meterEl.appendChild(s);
+            segs.push(s);
+        }
+        let displayLevel = 0;       // 0..1, smoothed
+        let peakHold = 0;           // 0..1
+        let peakHoldUntil = 0;
+        const DECAY = 0.88;         // per-frame multiplier for displayLevel
+        const MIN_DB = -42;
+
+        function meterLoop() {
+            requestAnimationFrame(meterLoop);
+            meterTap.getFloatTimeDomainData(meterBuf);
+            let peak = 0;
+            for (let i = 0; i < meterBuf.length; i++) {
+                const v = Math.abs(meterBuf[i]);
+                if (v > peak) peak = v;
+            }
+            const db = peak > 0.00001 ? 20 * Math.log10(peak) : -120;
+            const norm = Math.max(0, Math.min(1, (db - MIN_DB) / -MIN_DB));
+            if (norm > displayLevel) displayLevel = norm;
+            else displayLevel *= DECAY;
+            const now = performance.now();
+            if (norm >= peakHold) {
+                peakHold = norm;
+                peakHoldUntil = now + 600;
+            } else if (now > peakHoldUntil) {
+                peakHold = Math.max(displayLevel, peakHold * 0.96);
+            }
+            const lit = Math.round(displayLevel * SEG_COUNT);
+            const peakIdx = Math.max(0, Math.min(SEG_COUNT - 1, Math.round(peakHold * SEG_COUNT) - 1));
+            for (let i = 0; i < SEG_COUNT; i++) {
+                const on = i < lit || i === peakIdx;
+                const cls = segs[i].classList;
+                cls.toggle('on', on);
+                cls.toggle('mid', on && i >= 9 && i < 12);
+                cls.toggle('hot', on && i >= 12);
+            }
+        }
+        meterLoop();
+    })();
 
     // ---------- Clock ----------
     function tickClock() {

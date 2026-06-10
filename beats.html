@@ -88,6 +88,34 @@
         .top a { color: var(--dim); text-decoration: none; }
         .top a:hover { color: var(--accent); }
 
+        /* Master peak meter — same brutalist segmented bar as main site */
+        .meter {
+            display: flex;
+            gap: 2px;
+            height: 12px;
+            padding: 2px;
+            border: 1px solid var(--fg);
+            background: #000;
+            flex: 0 0 auto;
+            margin: 0 10px;
+        }
+        .meter .seg {
+            width: 5px;
+            height: 100%;
+            background: var(--mute);
+            transition: background 40ms linear;
+        }
+        .meter .seg.on { background: var(--accent-2); }
+        .meter .seg.on.mid { background: var(--fg); }
+        .meter .seg.on.hot { background: var(--accent); }
+        @media (max-width: 480px) {
+            .meter .seg { width: 4px; }
+            .meter { padding: 1px; gap: 1px; height: 10px; margin: 0 6px; }
+        }
+        @media (max-width: 380px) {
+            .meter { display: none; }
+        }
+
         /* Module wrapper */
         .module {
             border: 2px solid var(--fg);
@@ -737,6 +765,7 @@
     <div class="wrap">
         <div class="top">
             <div class="brand">FART<span class="slash">/</span>GOD <span style="color:var(--dim); font-weight:500;">// BEATS</span></div>
+            <div class="meter" id="meter" aria-label="Master output level"></div>
             <div class="top-actions">
                 <button id="export" class="export empty" title="Click to download · Hold + drag to DAW">EXPORT</button>
                 <a href="index.html" title="Back to full site">← FULL SITE</a>
@@ -933,7 +962,24 @@
     padsWet.connect(padsBus);
     padsBus.connect(filterHPF);
     filterHPF.connect(filterLPF);
-    filterLPF.connect(ctx.destination);
+
+    // ---------- Master bus (limiter + meter tap) ----------
+    // Brick-wall limiter at -1 dB so stacked pad hits don't clip the
+    // output. Same settings as the main site for consistency. meterTap
+    // feeds the topbar LED meter.
+    const masterLimiter = ctx.createDynamicsCompressor();
+    masterLimiter.threshold.value = -1;
+    masterLimiter.knee.value = 0;
+    masterLimiter.ratio.value = 20;
+    masterLimiter.attack.value = 0.001;
+    masterLimiter.release.value = 0.05;
+    const meterTap = ctx.createAnalyser();
+    meterTap.fftSize = 1024;
+    meterTap.smoothingTimeConstant = 0;
+    const meterBuf = new Float32Array(meterTap.fftSize);
+    filterLPF.connect(masterLimiter);
+    masterLimiter.connect(meterTap);
+    meterTap.connect(ctx.destination);
 
     // Smooth long plate IR (~3.5 s decay)
     function makePlateIR() {
@@ -1535,7 +1581,17 @@
         offWet.connect(offBus);
         offBus.connect(offHPF);
         offHPF.connect(offLPF);
-        offLPF.connect(off.destination);
+
+        // Match the live master limiter so the export sounds like what you heard.
+        const offLim = off.createDynamicsCompressor();
+        offLim.threshold.value = -1;
+        offLim.knee.value = 0;
+        offLim.ratio.value = 20;
+        offLim.attack.value = 0.001;
+        offLim.release.value = 0.05;
+        offLPF.connect(offLim);
+        offLim.connect(off.destination);
+
         const needed = new Set();
         sequences.forEach((s, i) => { if (s.slice(0, stepCount).some(v => v !== null)) needed.add(i); });
         const bufMap = new Map();
@@ -1857,6 +1913,54 @@
             closeTrimModal();
         }
     });
+
+    // ---------- Master peak meter ----------
+    // 16 segments. Maps peak amplitude post-limiter to segments via
+    // 20*log10(peak) → -42..0 dB across the bar. Same algorithm as the
+    // full site so the two pages feel consistent.
+    (function initMeter() {
+        const meterEl = document.getElementById('meter');
+        if (!meterEl) return;
+        const SEG_COUNT = 16;
+        const segs = [];
+        for (let i = 0; i < SEG_COUNT; i++) {
+            const s = document.createElement('div');
+            s.className = 'seg';
+            meterEl.appendChild(s);
+            segs.push(s);
+        }
+        let displayLevel = 0;
+        let peakHold = 0;
+        let peakHoldUntil = 0;
+        const DECAY = 0.88;
+        const MIN_DB = -42;
+        function meterLoop() {
+            requestAnimationFrame(meterLoop);
+            meterTap.getFloatTimeDomainData(meterBuf);
+            let peak = 0;
+            for (let i = 0; i < meterBuf.length; i++) {
+                const v = Math.abs(meterBuf[i]);
+                if (v > peak) peak = v;
+            }
+            const db = peak > 0.00001 ? 20 * Math.log10(peak) : -120;
+            const norm = Math.max(0, Math.min(1, (db - MIN_DB) / -MIN_DB));
+            if (norm > displayLevel) displayLevel = norm;
+            else displayLevel *= DECAY;
+            const now = performance.now();
+            if (norm >= peakHold) { peakHold = norm; peakHoldUntil = now + 600; }
+            else if (now > peakHoldUntil) peakHold = Math.max(displayLevel, peakHold * 0.96);
+            const lit = Math.round(displayLevel * SEG_COUNT);
+            const peakIdx = Math.max(0, Math.min(SEG_COUNT - 1, Math.round(peakHold * SEG_COUNT) - 1));
+            for (let i = 0; i < SEG_COUNT; i++) {
+                const on = i < lit || i === peakIdx;
+                const cls = segs[i].classList;
+                cls.toggle('on', on);
+                cls.toggle('mid', on && i >= 9 && i < 12);
+                cls.toggle('hot', on && i >= 12);
+            }
+        }
+        meterLoop();
+    })();
 
     // ---------- Boot ----------
     armPad(0);
