@@ -1160,6 +1160,13 @@
         }
         .seq-transport button.export.empty:hover { background: var(--mute); color: var(--dim); }
 
+        /* SHARE + DEMO buttons */
+        .seq-transport button.share { background: var(--bg); color: var(--accent-2); border-right: 2px solid var(--fg); }
+        .seq-transport button.share:hover { background: var(--accent-2); color: var(--bg); }
+        .seq-transport button.share.flash { background: var(--accent-2); color: var(--bg); }
+        .seq-transport button.demo { background: var(--bg); color: var(--fg); border-right: 2px solid var(--fg); }
+        .seq-transport button.demo:hover { background: var(--fg); color: var(--bg); }
+
         /* Reverb style cycle (inside the reverb knob) */
         .rev-cycle {
             display: flex;
@@ -1711,6 +1718,8 @@
                             <button id="seq-clear" title="Clear current pad">CLR</button>
                             <button id="seq-clear-all" title="Clear all sequences">CLR ALL</button>
                             <button id="seq-dup" title="Double the pattern length and duplicate every pad's steps into the second half">× 2</button>
+                            <button id="seq-demo" class="demo" title="Cycle through demo patterns">DEMO</button>
+                            <button id="seq-share" class="share" title="Copy a link that loads your current beat">SHARE</button>
                             <button id="seq-export" class="export empty" title="Click to download · Hold + drag to DAW">EXPORT</button>
                         </div>
                         <div class="stepper bpm-stepper">
@@ -3068,7 +3077,301 @@
             if (myToken !== renderToken) return;
             doRender(myToken);
         }, 200);
+        scheduleStateSave();
     }
+
+    // ---------- Persistent state: URL hash + localStorage + share + demos ----------
+    // The state we round-trip: sequences (per active step + pitch), bpm,
+    // step count, per-pad params, and global FX. Music player / granular /
+    // octave / armed pad are session-only.
+    const STORAGE_KEY = 'fartgod-state-v1';
+    let suppressSave = false;
+
+    function getShareState() {
+        const seqs = sequences.map(s => s.slice(0, stepCount));
+        const hasAny = seqs.some(s => s.some(v => v !== null));
+        if (!hasAny) return null;
+
+        const pads = {};
+        for (let i = 0; i < sequences.length; i++) {
+            const p = {};
+            if (padTrim[i].start !== 0) p.s = +padTrim[i].start.toFixed(3);
+            if (padTrim[i].end   !== 1) p.e = +padTrim[i].end.toFixed(3);
+            if (padPitch[i] !== 0)              p.p = padPitch[i];
+            if (Math.abs(padFilter[i]) > 0.005) p.f = +padFilter[i].toFixed(2);
+            if (padReverbSend[i] !== 1)         p.r = +padReverbSend[i].toFixed(2);
+            if (Object.keys(p).length) pads[i] = p;
+        }
+
+        const fx = {};
+        const fv = parseFloat(filterKnob.value);
+        const rv = parseFloat(reverbSlider.value);
+        if (Math.abs(fv) > 0.005) fx.f = +fv.toFixed(2);
+        if (rv > 0.005)           fx.r = +rv.toFixed(2);
+        if (env.attack !== 0)     fx.a = env.attack;
+        if (env.length !== 5000)  fx.l = env.length;
+        if (globalPitch !== 0)    fx.p = globalPitch;
+
+        return { v: 1, bpm, steps: stepCount, seqs, pads, fx };
+    }
+
+    function clamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
+
+    function applyShareState(state) {
+        if (!state || state.v !== 1) return false;
+        suppressSave = true;
+        try {
+            const newBpm = clamp(parseInt(state.bpm) || 120, BPM_MIN, BPM_MAX);
+            const newSteps = clamp(parseInt(state.steps) || 16, STEPS_MIN, STEPS_MAX);
+            setBPM(newBpm);
+            document.getElementById('bpm-input').value = newBpm;
+            setStepCount(newSteps);
+            document.getElementById('steps-input').value = newSteps;
+
+            for (let i = 0; i < sequences.length; i++) {
+                sequences[i].fill(null);
+                padTrim[i] = { start: 0, end: 1 };
+                padPitch[i] = 0;
+                padFilter[i] = 0;
+                padReverbSend[i] = 1;
+            }
+            (state.seqs || []).forEach((s, i) => {
+                if (!sequences[i] || !Array.isArray(s)) return;
+                s.forEach((v, j) => {
+                    if (j < STEPS_MAX) sequences[i][j] = (v === null || v === undefined) ? null : (parseInt(v) || 0);
+                });
+            });
+            Object.entries(state.pads || {}).forEach(([k, p]) => {
+                const i = parseInt(k);
+                if (isNaN(i) || !sequences[i]) return;
+                if (p.s !== undefined) padTrim[i].start = clamp(parseFloat(p.s), 0, 0.995);
+                if (p.e !== undefined) padTrim[i].end   = clamp(parseFloat(p.e), 0.005, 1);
+                if (p.p !== undefined) padPitch[i]      = clamp(parseInt(p.p) || 0, -24, 24);
+                if (p.f !== undefined) padFilter[i]     = clamp(parseFloat(p.f) || 0, -1, 1);
+                if (p.r !== undefined) padReverbSend[i] = clamp(parseFloat(p.r) || 0, 0, 2);
+            });
+
+            const fx = state.fx || {};
+            if (fx.f !== undefined) {
+                const v = clamp(parseFloat(fx.f), -1, 1);
+                filterKnob.value = v;
+                applyFilter(v);
+            } else {
+                filterKnob.value = 0;
+                applyFilter(0);
+            }
+            const newRev = fx.r !== undefined ? clamp(parseFloat(fx.r), 0, 1) : 0;
+            reverbSlider.value = newRev;
+            revSend.gain.setTargetAtTime(newRev, ctx.currentTime, 0.02);
+            document.getElementById('reverb-value').textContent = Math.round(newRev * 100) + '%';
+            env.attack = fx.a !== undefined ? clamp(parseInt(fx.a) || 0, 0, 500) : 0;
+            envAtt.value = env.attack;
+            envAttV.textContent = env.attack + ' MS';
+            env.length = fx.l !== undefined ? clamp(parseInt(fx.l) || 5000, 30, 5000) : 5000;
+            envLen.value = env.length;
+            envLenV.textContent = env.length >= 5000 ? 'FULL' : env.length + ' MS';
+            globalPitch = fx.p !== undefined ? clamp(parseInt(fx.p) || 0, -24, 24) : 0;
+            gPitch.value = globalPitch;
+            gPitchV.textContent = (globalPitch > 0 ? '+' : '') + globalPitch + ' ST';
+
+            renderSteps();
+            refreshPadIndicators();
+        } finally {
+            suppressSave = false;
+        }
+        return true;
+    }
+
+    function encodeStateToHash(state) {
+        const json = JSON.stringify(state);
+        // base64url, strip padding
+        return btoa(unescape(encodeURIComponent(json)))
+            .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    }
+    function decodeStateFromHash(b64) {
+        try {
+            const padded = b64.replace(/-/g, '+').replace(/_/g, '/') +
+                '='.repeat((4 - b64.length % 4) % 4);
+            return JSON.parse(decodeURIComponent(escape(atob(padded))));
+        } catch (e) {
+            console.warn('Failed to decode share state:', e);
+            return null;
+        }
+    }
+
+    let saveTimer = null;
+    function scheduleStateSave() {
+        if (suppressSave) return;
+        if (saveTimer) clearTimeout(saveTimer);
+        saveTimer = setTimeout(() => {
+            const state = getShareState();
+            try {
+                if (state) {
+                    const json = JSON.stringify(state);
+                    localStorage.setItem(STORAGE_KEY, json);
+                    history.replaceState(null, '', '#b=' + encodeStateToHash(state));
+                } else {
+                    localStorage.removeItem(STORAGE_KEY);
+                    history.replaceState(null, '', location.pathname + location.search);
+                }
+            } catch (e) {
+                console.warn('State save failed:', e);
+            }
+        }, 250);
+    }
+
+    function flashBtn(btn, msg, ms) {
+        if (!btn) return;
+        const orig = btn.dataset.origLabel || btn.textContent;
+        btn.dataset.origLabel = orig;
+        btn.textContent = msg;
+        btn.classList.add('flash');
+        clearTimeout(btn._flashTimer);
+        btn._flashTimer = setTimeout(() => {
+            btn.textContent = orig;
+            btn.classList.remove('flash');
+        }, ms || 1400);
+    }
+
+    // SHARE button
+    const shareBtn = document.getElementById('seq-share');
+    shareBtn.addEventListener('click', async () => {
+        const state = getShareState();
+        if (!state) { flashBtn(shareBtn, 'ADD A HIT FIRST', 1500); return; }
+        const url = location.origin + location.pathname + '#b=' + encodeStateToHash(state);
+        try {
+            await navigator.clipboard.writeText(url);
+            flashBtn(shareBtn, 'COPIED ✓');
+        } catch (e) {
+            // Fallback for older browsers / non-secure contexts
+            try {
+                const ta = document.createElement('textarea');
+                ta.value = url;
+                ta.style.position = 'fixed'; ta.style.opacity = '0';
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                ta.remove();
+                flashBtn(shareBtn, 'COPIED ✓');
+            } catch (_) {
+                flashBtn(shareBtn, 'COPY FAILED', 1800);
+            }
+        }
+    });
+
+    // ---------- DEMO patterns ----------
+    // Three short patterns that exercise different pads, BPMs, and FX so
+    // first-touch never lands on an empty grid. They cycle on each click.
+    function steps16(positions, semi = 0) {
+        const arr = new Array(16).fill(null);
+        positions.forEach(p => { arr[p] = semi; });
+        return arr;
+    }
+    function chromaticWalk(starts) {
+        // [step, semi] pairs
+        const arr = new Array(16).fill(null);
+        starts.forEach(([p, s]) => { arr[p] = s; });
+        return arr;
+    }
+    const EMPTY16 = () => new Array(16).fill(null);
+    function buildSeqs(map) {
+        const out = sampleFiles.map(() => EMPTY16());
+        Object.entries(map).forEach(([k, v]) => {
+            const i = parseInt(k);
+            if (!isNaN(i) && out[i]) out[i] = v;
+        });
+        return out;
+    }
+    const DEMOS = [
+        {
+            name: 'BOOM',
+            v: 1, bpm: 88, steps: 16,
+            seqs: buildSeqs({
+                0:  steps16([0, 8]),                        // PAD 01 — kick on 1, 9
+                4:  steps16([4, 12]),                       // PAD 05 — snare on 5, 13
+                9:  steps16([0,2,4,6,8,10,12,14]),          // PAD 10 — 8th hats
+                17: steps16([6, 14], -5),                   // PAD 18 — pitched accent
+            }),
+            pads: { 4: { r: 1.4 }, 9: { p: 5 } },
+            fx: { r: 0.18 }
+        },
+        {
+            name: 'WET',
+            v: 1, bpm: 70, steps: 16,
+            seqs: buildSeqs({
+                0:  steps16([0, 6, 8, 14]),                 // offbeat kick
+                4:  steps16([4, 12]),                       // snare
+                14: steps16([0,1,2,3, 8,9,10,11]),          // 16th hats clusters
+                7:  chromaticWalk([[3,2],[7,4],[11,7],[15,2]]),
+            }),
+            pads: { 4: { r: 1.6 }, 7: { r: 1.2, p: 7 }, 14: { p: 12 } },
+            fx: { r: 0.42 }
+        },
+        {
+            name: 'PUMP',
+            v: 1, bpm: 124, steps: 16,
+            seqs: buildSeqs({
+                0:  steps16([0, 4, 8, 12]),                 // four-on-the-floor
+                11: steps16([2, 6, 10, 14]),                // off-hat
+                5:  steps16([4, 12]),                       // clap
+                20: chromaticWalk([[0,0],[4,5],[8,7],[12,12]]),
+            }),
+            pads: { 5: { r: 1.3 }, 20: { p: -5 } },
+            fx: { r: 0.12, f: 0.0 }
+        }
+    ];
+    let demoIdx = -1;
+    let demoConfirmTimer = null;
+    let demoConfirmArmed = false;
+    const demoBtn = document.getElementById('seq-demo');
+    function loadDemo(d) {
+        // Pad the seqs out to STEPS_MAX so the structure matches the state shape.
+        const seqs = d.seqs.map(s => {
+            const padded = new Array(STEPS_MAX).fill(null);
+            for (let i = 0; i < s.length && i < STEPS_MAX; i++) padded[i] = s[i];
+            return padded;
+        });
+        const state = { v: 1, bpm: d.bpm, steps: d.steps, seqs, pads: d.pads || {}, fx: d.fx || {} };
+        applyShareState(state);
+        // After applying, persist the demo too so a refresh keeps it.
+        scheduleStateSave();
+        setMode('SEQ');
+    }
+    demoBtn.addEventListener('click', () => {
+        // If user has unsaved-looking content, require a second click to confirm.
+        const userHasContent = getShareState() !== null && !demoConfirmArmed;
+        if (userHasContent && demoIdx === -1) {
+            demoConfirmArmed = true;
+            flashBtn(demoBtn, 'CLICK AGAIN', 1500);
+            clearTimeout(demoConfirmTimer);
+            demoConfirmTimer = setTimeout(() => { demoConfirmArmed = false; }, 1500);
+            return;
+        }
+        demoConfirmArmed = false;
+        demoIdx = (demoIdx + 1) % DEMOS.length;
+        const d = DEMOS[demoIdx];
+        loadDemo(d);
+        flashBtn(demoBtn, d.name + ' ✓', 1200);
+    });
+
+    // ---------- Initial state load ----------
+    // Priority: URL hash (someone shared a beat) > localStorage (returning user) > empty grid.
+    // Either way, jump straight to SEQ so the user sees their beat without hunting for the tab.
+    (function bootState() {
+        const hash = location.hash || '';
+        const m = hash.match(/^#b=(.+)$/);
+        if (m) {
+            const state = decodeStateFromHash(m[1]);
+            if (state && applyShareState(state)) { setMode('SEQ'); return; }
+        }
+        try {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
+                const state = JSON.parse(saved);
+                if (applyShareState(state)) { setMode('SEQ'); return; }
+            }
+        } catch (e) { console.warn('localStorage load failed:', e); }
+    })();
 
     // If the user presses the button before the 200ms debounce finishes,
     // skip the wait and render immediately so the drag is ready right away.

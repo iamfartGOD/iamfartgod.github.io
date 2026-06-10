@@ -195,6 +195,11 @@
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
 
         .tempo-row { border-top: 2px solid var(--fg); }
+        .share-row { border-top: 2px solid var(--fg); }
+        .share-row button.share { color: var(--accent-2); }
+        .share-row button.share:hover { background: var(--accent-2); color: var(--bg); }
+        .share-row button.share.flash { background: var(--accent-2); color: var(--bg); }
+        .share-row button.demo.flash { background: var(--fg); color: var(--bg); }
         .tempo-row .stepper { flex: 1; }
         .tempo-row > .dup-btn {
             flex: 0 0 auto;
@@ -772,7 +777,7 @@
             </div>
         </div>
 
-        <!-- TRANSPORT — playback row + tempo row -->
+        <!-- TRANSPORT — playback row + tempo row + share row -->
         <section class="module">
             <div class="head"><span>// TRANSPORT</span></div>
             <div class="row-bar">
@@ -793,6 +798,10 @@
                     <input type="number" id="step-count" min="4" max="32" value="16">
                     <button id="steps-plus">+</button>
                 </div>
+            </div>
+            <div class="row-bar share-row">
+                <button id="demo"  class="demo"  title="Cycle through demo patterns">DEMO</button>
+                <button id="share" class="share" title="Copy a link that loads your current beat">SHARE</button>
             </div>
         </section>
 
@@ -1673,7 +1682,273 @@
             if (myToken !== renderToken) return;
             doRender(myToken);
         }, 200);
+        scheduleStateSave();
     }
+
+    // ---------- Persistent state: URL hash + localStorage + share + demos ----------
+    // Share-compatible with index.html: same v1 schema so a beat made on
+    // one page plays on the other. Unsupported FX fields are silently
+    // ignored on load (e.g. attack here, gran params either direction).
+    const STORAGE_KEY = 'fartgod-state-v1';
+    let suppressSave = false;
+    function clamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
+
+    function getShareState() {
+        const seqs = sequences.map(s => s.slice(0, stepCount));
+        const hasAny = seqs.some(s => s.some(v => v !== null));
+        if (!hasAny) return null;
+        const pads = {};
+        for (let i = 0; i < sequences.length; i++) {
+            const p = {};
+            if (padTrim[i].start !== 0) p.s = +padTrim[i].start.toFixed(3);
+            if (padTrim[i].end   !== 1) p.e = +padTrim[i].end.toFixed(3);
+            if (padPitch[i] !== 0)              p.p = padPitch[i];
+            if (Math.abs(padFilter[i]) > 0.005) p.f = +padFilter[i].toFixed(2);
+            if (padReverbSend[i] !== 1)         p.r = +padReverbSend[i].toFixed(2);
+            if (Object.keys(p).length) pads[i] = p;
+        }
+        const fx = {};
+        const fv = parseFloat(filterKnob.value);
+        const rv = parseFloat(document.getElementById('rev').value);
+        if (Math.abs(fv) > 0.005) fx.f = +fv.toFixed(2);
+        if (rv > 0.005)           fx.r = +rv.toFixed(2);
+        if (env.length !== 5000)  fx.l = env.length;
+        if (globalPitch !== 0)    fx.p = globalPitch;
+        return { v: 1, bpm, steps: stepCount, seqs, pads, fx };
+    }
+
+    function applyShareState(state) {
+        if (!state || state.v !== 1) return false;
+        suppressSave = true;
+        try {
+            const newBpm = clamp(parseInt(state.bpm) || 120, BPM_MIN, BPM_MAX);
+            const newSteps = clamp(parseInt(state.steps) || 16, STEPS_MIN, STEPS_MAX);
+            setBPM(newBpm); bpmInput.value = newBpm;
+            setStepCount(newSteps); stepInput.value = newSteps;
+
+            for (let i = 0; i < sequences.length; i++) {
+                sequences[i].fill(null);
+                padTrim[i] = { start: 0, end: 1 };
+                padPitch[i] = 0;
+                padFilter[i] = 0;
+                padReverbSend[i] = 1;
+            }
+            (state.seqs || []).forEach((s, i) => {
+                if (!sequences[i] || !Array.isArray(s)) return;
+                s.forEach((v, j) => {
+                    if (j < STEPS_MAX) sequences[i][j] = (v === null || v === undefined) ? null : (parseInt(v) || 0);
+                });
+            });
+            Object.entries(state.pads || {}).forEach(([k, p]) => {
+                const i = parseInt(k);
+                if (isNaN(i) || !sequences[i]) return;
+                if (p.s !== undefined) padTrim[i].start = clamp(parseFloat(p.s), 0, 0.995);
+                if (p.e !== undefined) padTrim[i].end   = clamp(parseFloat(p.e), 0.005, 1);
+                if (p.p !== undefined) padPitch[i]      = clamp(parseInt(p.p) || 0, -24, 24);
+                if (p.f !== undefined) padFilter[i]     = clamp(parseFloat(p.f) || 0, -1, 1);
+                if (p.r !== undefined) padReverbSend[i] = clamp(parseFloat(p.r) || 0, 0, 2);
+            });
+
+            const fx = state.fx || {};
+            const fVal = fx.f !== undefined ? clamp(parseFloat(fx.f), -1, 1) : 0;
+            filterKnob.value = fVal; applyFilter(fVal);
+            const rVal = fx.r !== undefined ? clamp(parseFloat(fx.r), 0, 1) : 0.05;
+            document.getElementById('rev').value = rVal;
+            applyReverbMix(rVal);
+            document.getElementById('rev-v').textContent = Math.round(rVal * 100) + '%';
+            env.length = fx.l !== undefined ? clamp(parseInt(fx.l) || 5000, 30, 5000) : 5000;
+            document.getElementById('len').value = env.length;
+            document.getElementById('len-v').textContent = env.length >= 5000 ? 'FULL' : env.length + ' MS';
+            globalPitch = fx.p !== undefined ? clamp(parseInt(fx.p) || 0, -24, 24) : 0;
+            pitchInput.value = globalPitch;
+            document.getElementById('pitch-v').textContent = (globalPitch > 0 ? '+' : '') + globalPitch + ' ST';
+
+            renderSteps();
+            refreshPadIndicators();
+        } finally {
+            suppressSave = false;
+        }
+        return true;
+    }
+
+    function encodeStateToHash(state) {
+        const json = JSON.stringify(state);
+        return btoa(unescape(encodeURIComponent(json)))
+            .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    }
+    function decodeStateFromHash(b64) {
+        try {
+            const padded = b64.replace(/-/g, '+').replace(/_/g, '/') +
+                '='.repeat((4 - b64.length % 4) % 4);
+            return JSON.parse(decodeURIComponent(escape(atob(padded))));
+        } catch (e) {
+            console.warn('Decode failed:', e);
+            return null;
+        }
+    }
+
+    let saveTimer = null;
+    function scheduleStateSave() {
+        if (suppressSave) return;
+        if (saveTimer) clearTimeout(saveTimer);
+        saveTimer = setTimeout(() => {
+            const state = getShareState();
+            try {
+                if (state) {
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+                    history.replaceState(null, '', '#b=' + encodeStateToHash(state));
+                } else {
+                    localStorage.removeItem(STORAGE_KEY);
+                    history.replaceState(null, '', location.pathname + location.search);
+                }
+            } catch (e) { console.warn('State save failed:', e); }
+        }, 250);
+    }
+
+    function flashBtn(btn, msg, ms) {
+        if (!btn) return;
+        const orig = btn.dataset.origLabel || btn.textContent;
+        btn.dataset.origLabel = orig;
+        btn.textContent = msg;
+        btn.classList.add('flash');
+        clearTimeout(btn._flashTimer);
+        btn._flashTimer = setTimeout(() => {
+            btn.textContent = orig;
+            btn.classList.remove('flash');
+        }, ms || 1400);
+    }
+
+    // SHARE button — clipboard, with native share sheet preferred on touch.
+    const shareBtn = document.getElementById('share');
+    shareBtn.addEventListener('click', async () => {
+        const state = getShareState();
+        if (!state) { flashBtn(shareBtn, 'ADD A HIT FIRST', 1500); return; }
+        const url = location.origin + location.pathname + '#b=' + encodeStateToHash(state);
+        if (isTouchDevice && navigator.share) {
+            try { await navigator.share({ title: 'fartGOD beat', url }); return; }
+            catch (err) { if (err && err.name === 'AbortError') return; }
+        }
+        try {
+            await navigator.clipboard.writeText(url);
+            flashBtn(shareBtn, 'COPIED ✓');
+        } catch (_) {
+            try {
+                const ta = document.createElement('textarea');
+                ta.value = url;
+                ta.style.position = 'fixed'; ta.style.opacity = '0';
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                ta.remove();
+                flashBtn(shareBtn, 'COPIED ✓');
+            } catch (e) {
+                flashBtn(shareBtn, 'COPY FAILED', 1800);
+            }
+        }
+    });
+
+    // ---------- DEMO patterns ----------
+    function steps16(positions, semi = 0) {
+        const arr = new Array(16).fill(null);
+        positions.forEach(p => { arr[p] = semi; });
+        return arr;
+    }
+    function chromaticWalk(starts) {
+        const arr = new Array(16).fill(null);
+        starts.forEach(([p, s]) => { arr[p] = s; });
+        return arr;
+    }
+    function buildSeqs(map) {
+        const out = sampleFiles.map(() => new Array(16).fill(null));
+        Object.entries(map).forEach(([k, v]) => {
+            const i = parseInt(k);
+            if (!isNaN(i) && out[i]) out[i] = v;
+        });
+        return out;
+    }
+    const DEMOS = [
+        {
+            name: 'BOOM',
+            v: 1, bpm: 88, steps: 16,
+            seqs: buildSeqs({
+                0:  steps16([0, 8]),
+                4:  steps16([4, 12]),
+                9:  steps16([0,2,4,6,8,10,12,14]),
+                17: steps16([6, 14], -5),
+            }),
+            pads: { 4: { r: 1.4 }, 9: { p: 5 } },
+            fx: { r: 0.18 }
+        },
+        {
+            name: 'WET',
+            v: 1, bpm: 70, steps: 16,
+            seqs: buildSeqs({
+                0:  steps16([0, 6, 8, 14]),
+                4:  steps16([4, 12]),
+                14: steps16([0,1,2,3, 8,9,10,11]),
+                7:  chromaticWalk([[3,2],[7,4],[11,7],[15,2]]),
+            }),
+            pads: { 4: { r: 1.6 }, 7: { r: 1.2, p: 7 }, 14: { p: 12 } },
+            fx: { r: 0.42 }
+        },
+        {
+            name: 'PUMP',
+            v: 1, bpm: 124, steps: 16,
+            seqs: buildSeqs({
+                0:  steps16([0, 4, 8, 12]),
+                11: steps16([2, 6, 10, 14]),
+                5:  steps16([4, 12]),
+                20: chromaticWalk([[0,0],[4,5],[8,7],[12,12]]),
+            }),
+            pads: { 5: { r: 1.3 }, 20: { p: -5 } },
+            fx: { r: 0.12 }
+        }
+    ];
+    let demoIdx = -1;
+    let demoConfirmTimer = null;
+    let demoConfirmArmed = false;
+    const demoBtn = document.getElementById('demo');
+    function loadDemo(d) {
+        const seqs = d.seqs.map(s => {
+            const padded = new Array(STEPS_MAX).fill(null);
+            for (let i = 0; i < s.length && i < STEPS_MAX; i++) padded[i] = s[i];
+            return padded;
+        });
+        applyShareState({ v: 1, bpm: d.bpm, steps: d.steps, seqs, pads: d.pads || {}, fx: d.fx || {} });
+        scheduleStateSave();
+    }
+    demoBtn.addEventListener('click', () => {
+        const userHasContent = getShareState() !== null && !demoConfirmArmed;
+        if (userHasContent && demoIdx === -1) {
+            demoConfirmArmed = true;
+            flashBtn(demoBtn, 'CLICK AGAIN', 1500);
+            clearTimeout(demoConfirmTimer);
+            demoConfirmTimer = setTimeout(() => { demoConfirmArmed = false; }, 1500);
+            return;
+        }
+        demoConfirmArmed = false;
+        demoIdx = (demoIdx + 1) % DEMOS.length;
+        const d = DEMOS[demoIdx];
+        loadDemo(d);
+        flashBtn(demoBtn, d.name + ' ✓', 1200);
+    });
+
+    // ---------- Initial state load ----------
+    (function bootState() {
+        const hash = location.hash || '';
+        const m = hash.match(/^#b=(.+)$/);
+        if (m) {
+            const state = decodeStateFromHash(m[1]);
+            if (state && applyShareState(state)) return;
+        }
+        try {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
+                const state = JSON.parse(saved);
+                applyShareState(state);
+            }
+        } catch (e) { console.warn('localStorage load failed:', e); }
+    })();
     exportBtn.addEventListener('mousedown', () => {
         if (renderInFlight) return;
         if (!exportBlobUrl && hasContent()) doRender(++renderToken);
