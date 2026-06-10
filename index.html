@@ -1529,8 +1529,13 @@
             .buy .cta { padding: 12px 14px; font-size: 12px; margin-top: 14px; }
             .buy .barcode { font-size: 8px; padding: 4px 8px; }
 
-            /* GLOBAL FX — hidden on phone */
-            .gfx { display: none; }
+            /* GLOBAL FX on phone — kept but compact so users still reach
+               filter / reverb / pitch without leaving the page. */
+            .gfx { grid-template-columns: 1fr 1fr; }
+            .gfx .gfx-title { grid-column: 1 / -1; border-right: none; border-bottom: 2px solid var(--fg); min-height: 32px; padding: 0 12px; font-size: 10px; }
+            .gfx .gfx-knob { padding: 8px 12px; }
+            .gfx .klbl { font-size: 9px; margin-bottom: 6px; }
+            .gfx .klbl b { font-size: 11px; }
 
             /* Pack module — compact head, tab strip */
             .pack { margin-top: 10px; }
@@ -1576,6 +1581,83 @@
             .pad .name { font-size: 11px; }
             .tbtn { font-size: 12px; padding: 10px 2px; min-height: 42px; }
             .seq-transport button { font-size: 10px; padding: 9px 4px; }
+        }
+
+        /* ============================================================
+           MOBILE-FIRST FLOW (≤ 700px)
+           - Reorder so pads land directly under a compact hero (the
+             player + music video stop pushing the play surface below
+             the fold).
+           - Sticky seq transport so PLAY/REC/SHARE/EXPORT stay reachable
+             without scrolling back up while editing a beat.
+           - Smaller, less greedy music-video frame.
+           ============================================================ */
+        @media (max-width: 700px) {
+            .wrap {
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+            }
+            /* Margins on individual modules would compound with flex gap */
+            .wrap > .topbar,
+            .wrap > .hero,
+            .wrap > .cannon,
+            .wrap > .grid,
+            .wrap > .gfx,
+            .wrap > .pack,
+            .wrap > .kbd-wrap,
+            .wrap > .buy {
+                margin-top: 0;
+                margin-bottom: 0;
+            }
+            .topbar    { order: 1; position: sticky; top: 0; z-index: 60; }
+            .hero      { order: 2; }
+            .pack      { order: 3; }
+            .kbd-wrap  { order: 4; }
+            .gfx       { order: 5; }
+            .cannon    { order: 6; }
+            .grid      { order: 7; }
+            .buy       { order: 8; }
+            .footer    { order: 9; }
+
+            /* Sticky seq transport when actively sequencing */
+            body.mode-seq .pack .seq.show {
+                position: relative;
+            }
+            body.mode-seq .pack .seq.show .seq-bar {
+                position: sticky;
+                top: 32px;   /* clears the sticky topbar */
+                z-index: 40;
+                background: var(--bg);
+                box-shadow: 0 4px 0 0 var(--bg);
+            }
+
+            /* Keep the 9-button transport in a single row, but let it
+               horizontally scroll on tiny screens so labels never get
+               clipped. The sticky bar stays slim that way. */
+            .seq-transport {
+                overflow-x: auto;
+                scrollbar-width: none;
+            }
+            .seq-transport::-webkit-scrollbar { display: none; }
+            .seq-transport button {
+                flex: 0 0 auto;
+                min-height: 44px;
+                padding: 10px 12px;
+                font-size: 11px;
+                white-space: nowrap;
+            }
+
+            /* Compact music video — was eating the whole viewport */
+            .video .video-frame { max-height: 220px; overflow: hidden; }
+
+            /* Bigger hit target on small touch screens */
+            .step { touch-action: manipulation; }
+        }
+
+        /* The smallest screens — even tighter sticky offset */
+        @media (max-width: 420px) {
+            body.mode-seq .pack .seq.show .seq-bar { top: 32px; }
         }
     </style>
 </head>
